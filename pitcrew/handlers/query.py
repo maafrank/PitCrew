@@ -1,6 +1,6 @@
 """Query handler for answering questions about the project."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 from pitcrew.llm import LLM
 
@@ -31,6 +31,41 @@ class QueryHandler:
 
         Returns:
             Answer to the query
+        """
+        messages = self._prepare_messages(query, context)
+
+        try:
+            response = self.llm.complete(messages, temperature=0.7)
+            return response["content"]
+        except Exception as e:
+            return f"I encountered an error while processing your query: {str(e)}\n\nYou can try rephrasing or use /help to see available commands."
+
+    def handle_stream(self, query: str, context: "ConversationContext") -> Generator[str, None, None]:
+        """Handle a user query with streaming response.
+
+        Args:
+            query: User's question
+            context: Conversation context
+
+        Yields:
+            Text chunks as they arrive
+        """
+        messages = self._prepare_messages(query, context)
+
+        try:
+            yield from self.llm.stream(messages, temperature=0.7)
+        except Exception as e:
+            yield f"I encountered an error while processing your query: {str(e)}\n\nYou can try rephrasing or use /help to see available commands."
+
+    def _prepare_messages(self, query: str, context: "ConversationContext") -> list[dict]:
+        """Prepare messages for LLM.
+
+        Args:
+            query: User's question
+            context: Conversation context
+
+        Returns:
+            List of message dicts
         """
         # Gather information about the project
         info_parts = []
@@ -78,11 +113,7 @@ class QueryHandler:
         else:
             messages.insert(0, {"role": "system", "content": system_prompt})
 
-        try:
-            response = self.llm.complete(messages, temperature=0.7)
-            return response["content"]
-        except Exception as e:
-            return f"I encountered an error while processing your query: {str(e)}\n\nYou can try rephrasing or use /help to see available commands."
+        return messages
 
     def _build_system_prompt(self, project_info: str) -> str:
         """Build system prompt for query handling.

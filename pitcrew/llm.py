@@ -1,7 +1,7 @@
 """LLM abstraction layer for multiple providers."""
 
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Generator, Literal, Optional
 
 from anthropic import Anthropic
 from openai import OpenAI
@@ -64,6 +64,32 @@ class LLM:
             return self._complete_openai(messages, tools, temp, max_tok)
         elif self.descriptor.provider == "anthropic":
             return self._complete_anthropic(messages, tools, temp, max_tok)
+
+    def stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict]] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Generator[str, None, None]:
+        """Generate a streaming completion.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            tools: Optional list of tool definitions
+            temperature: Optional temperature override
+            max_tokens: Optional max tokens override
+
+        Yields:
+            Text chunks as they arrive
+        """
+        temp = temperature if temperature is not None else self.descriptor.temperature
+        max_tok = max_tokens if max_tokens is not None else self.descriptor.max_output_tokens
+
+        if self.descriptor.provider == "openai":
+            yield from self._stream_openai(messages, tools, temp, max_tok)
+        elif self.descriptor.provider == "anthropic":
+            yield from self._stream_anthropic(messages, tools, temp, max_tok)
 
     def _complete_openai(
         self,
@@ -203,6 +229,65 @@ class LLM:
             name=model_config["name"],
             max_output_tokens=model_config["max_output_tokens"],
         )
+
+    def _stream_openai(
+        self,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict]],
+        temperature: float,
+        max_tokens: int,
+    ) -> Generator[str, None, None]:
+        """Stream using OpenAI API."""
+        kwargs: dict[str, Any] = {
+            "model": self.descriptor.name,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+
+        stream = self.client.chat.completions.create(**kwargs)
+
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
+    def _stream_anthropic(
+        self,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict]],
+        temperature: float,
+        max_tokens: int,
+    ) -> Generator[str, None, None]:
+        """Stream using Anthropic API."""
+        # Anthropic requires system messages to be separate
+        system_messages = [m["content"] for m in messages if m["role"] == "system"]
+        system = "\n\n".join(system_messages) if system_messages else None
+
+        # Filter out system messages from main messages
+        chat_messages = [m for m in messages if m["role"] != "system"]
+
+        kwargs: dict[str, Any] = {
+            "model": self.descriptor.name,
+            "messages": chat_messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        if system:
+            kwargs["system"] = system
+
+        if tools:
+            # Convert OpenAI tool format to Anthropic format
+            kwargs["tools"] = self._convert_tools_to_anthropic(tools)
+
+        with self.client.messages.stream(**kwargs) as stream:
+            for text in stream.text_stream:
+                yield text
 
     @classmethod
     def list_models(cls) -> list[str]:

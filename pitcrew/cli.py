@@ -249,9 +249,14 @@ class REPL:
 
             # Route based on intent
             if intent.action == "query":
-                response = self.query_handler.handle(text, self.conversation)
-                console.print(f"\n{response}\n")
-                self.conversation.add_message("assistant", response)
+                # Stream the response
+                console.print()  # Add newline before streaming
+                full_response = ""
+                for chunk in self.query_handler.handle_stream(text, self.conversation):
+                    console.print(chunk, end="")
+                    full_response += chunk
+                console.print("\n")  # Add newline after streaming
+                self.conversation.add_message("assistant", full_response)
 
             elif intent.action == "plan":
                 # Use autonomous handler for planning and execution
@@ -292,10 +297,14 @@ class REPL:
                 self.handle_command("/config")
 
             else:
-                # Fallback to query
-                response = self.query_handler.handle(text, self.conversation)
-                console.print(f"\n{response}\n")
-                self.conversation.add_message("assistant", response)
+                # Fallback to query with streaming
+                console.print()  # Add newline before streaming
+                full_response = ""
+                for chunk in self.query_handler.handle_stream(text, self.conversation):
+                    console.print(chunk, end="")
+                    full_response += chunk
+                console.print("\n")  # Add newline after streaming
+                self.conversation.add_message("assistant", full_response)
 
         except Exception as e:
             console.print(f"[red]Error processing request: {e}[/red]")

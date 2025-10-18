@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pitcrew"
+version = "0.1.0"
+description = "Terminal-based code editing bot using LangGraph"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "PitCrew Team"}
+]
+keywords = ["ai", "code-editor", "langgraph", "cli", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-anthropic>=0.2.0",
+    "pydantic>=2.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+    "jinja2>=3.1.0",
+    "unidiff>=0.7.0",
+    "pathspec>=0.12.0",
+    "openai>=1.0.0",
+    "anthropic>=0.34.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "black>=24.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[project.scripts]
+codebot = "pitcrew.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pitcrew*"]
+
+[tool.setuptools.package-data]
+pitcrew = ["templates/*.j2"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=pitcrew --cov-report=term-missing"

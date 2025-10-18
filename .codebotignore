@@ -1,0 +1,30 @@
+# PitCrew internal directories
+.bot/
+
+# Version control
+.git/
+.svn/
+
+# Dependencies
+node_modules/
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Large files
+*.log
+*.sqlite
+*.db

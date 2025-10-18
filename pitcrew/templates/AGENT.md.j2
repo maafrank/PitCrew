@@ -1,0 +1,80 @@
+# {{ project_name }} - Agent Instructions
+
+## Project Summary
+
+*Brief description of what this project does and its primary goals.*
+
+## Technology Stack
+
+{% if languages %}**Programming Languages:** {{ languages | join(', ') }}{% endif %}
+
+**Key Technologies:**
+- List frameworks, libraries, and tools used
+- Include version requirements if relevant
+
+## Development Commands
+
+### Setup
+```bash
+# Add setup commands here
+```
+
+### Running
+```bash
+# Add run commands here
+```
+
+### Testing
+{% if test_command %}
+```bash
+{{ test_command }}
+```
+{% else %}
+```bash
+# No test command configured
+```
+{% endif %}
+
+### Building
+```bash
+# Add build commands here
+```
+
+## Project Structure
+
+```
+{{ file_tree }}
+```
+
+## Code Conventions
+
+1. **File Organization**
+   - Group related functionality in modules/packages
+   - Use clear, descriptive names for files and directories
+
+2. **Code Style**
+   - Follow language idioms and best practices
+   - Use consistent formatting (automated via linter if available)
+
+3. **Documentation**
+   - Document public APIs and complex logic
+   - Keep comments up-to-date with code changes
+
+4. **Testing**
+   - Write tests for new functionality
+   - Ensure existing tests pass before committing
+
+## Workflow for Making Changes
+
+1. **Analyze:** Understand the current code structure and identify files to modify
+2. **Plan:** Create a structured plan with specific file edits
+3. **Implement:** Apply changes using patches when possible
+4. **Test:** Run tests to verify changes work correctly
+5. **Review:** Check that changes are minimal and focused
+
+## Important Notes
+
+- Prefer making small, focused changes over large rewrites
+- Always validate that files exist before attempting to edit them
+- Use patches for modifications, full content for new files
+- Include post-checks (tests, linters) in plans when appropriate

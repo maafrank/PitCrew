@@ -1,0 +1,253 @@
+{
+  "files": [
+    {
+      "path": "test_cli.sh",
+      "size": 983,
+      "mtime": 1760818504.234288,
+      "hash": "16edebc2ea234e90d72267be8f1a3863",
+      "language": "shell"
+    },
+    {
+      "path": "pyproject.toml",
+      "size": 1772,
+      "mtime": 1760817769.97581,
+      "hash": "71f8c8a38a7483ee86d498031a2690e7",
+      "language": "toml"
+    },
+    {
+      "path": "README.md",
+      "size": 13637,
+      "mtime": 1760816814.7821717,
+      "hash": "103f9915e3d05bbe7f06d071a9705af3",
+      "language": "markdown"
+    },
+    {
+      "path": ".codebotignore",
+      "size": 246,
+      "mtime": 1760817770.088037,
+      "hash": "2cb774227cb7181e062eda439c3ae2b0",
+      "language": null
+    },
+    {
+      "path": ".gitignore",
+      "size": 4688,
+      "mtime": 1760816028.9169204,
+      "hash": "64ade73f4586bbd5612782b751e67950",
+      "language": null
+    },
+    {
+      "path": "plan.md",
+      "size": 17125,
+      "mtime": 1760817724.8858812,
+      "hash": "a55734215486e352b9607e50325a84c2",
+      "language": "markdown"
+    },
+    {
+      "path": ".env.example",
+      "size": 462,
+      "mtime": 1760817770.0714068,
+      "hash": "7c41f4ec0ed13d832eb0d0652efc98fa",
+      "language": null
+    },
+    {
+      "path": "CLAUDE.md",
+      "size": 6977,
+      "mtime": 1760816899.214445,
+      "hash": "b515092b603e4739ce24ee758f9ed35a",
+      "language": "markdown"
+    },
+    {
+      "path": "tests/test_ignore.py",
+      "size": 1722,
+      "mtime": 1760818263.4483666,
+      "hash": "c62f8d8eb119a1f21bd25c28313fa6cb",
+      "language": "python"
+    },
+    {
+      "path": "tests/conftest.py",
+      "size": 1239,
+      "mtime": 1760818211.2292259,
+      "hash": "5104c1439334779c5578aebba2f414e2",
+      "language": "python"
+    },
+    {
+      "path": "tests/__init__.py",
+      "size": 30,
+      "mtime": 1760818211.2075174,
+      "hash": "0f5199c11e7f615bc3bc69ac24e29963",
+      "language": "python"
+    },
+    {
+      "path": "tests/test_read_write.py",
+      "size": 2376,
+      "mtime": 1760818395.3768258,
+      "hash": "97b0a671ac0949b88082bfecca83ee8c",
+      "language": "python"
+    },
+    {
+      "path": "tests/test_executor.py",
+      "size": 1656,
+      "mtime": 1760818263.490136,
+      "hash": "3c97445fc4af6008e5f069b35b3f46c4",
+      "language": "python"
+    },
+    {
+      "path": "tests/test_file_index.py",
+      "size": 2038,
+      "mtime": 1760818263.5066862,
+      "hash": "f3cbfd0731821276175e262c2b4887a6",
+      "language": "python"
+    },
+    {
+      "path": ".claude/settings.local.json",
+      "size": 938,
+      "mtime": 1760818521.4338918,
+      "hash": "f1299d73d853b1939acc577bc1bcd9e7",
+      "language": "json"
+    },
+    {
+      "path": "pitcrew/config.py",
+      "size": 4000,
+      "mtime": 1760817819.5033743,
+      "hash": "6c82ef4dd020723a1fa8e09843ab7518",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/graph.py",
+      "size": 13310,
+      "mtime": 1760818147.6896307,
+      "hash": "03b78c94cd4d738c4cee14e095e129f6",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/constants.py",
+      "size": 2501,
+      "mtime": 1760817819.466652,
+      "hash": "5dac2719c7b1fd18f61b2a452c41dae4",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/__init__.py",
+      "size": 88,
+      "mtime": 1760817819.4422364,
+      "hash": "31e7577172563482c99d8b041b577cfd",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/llm.py",
+      "size": 6580,
+      "mtime": 1760817965.3131063,
+      "hash": "45ade44fdb33961dbedba11ef0262bfa",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/cli.py",
+      "size": 11351,
+      "mtime": 1760818189.723533,
+      "hash": "d01ddc0dbe218eba211b76213e15f085",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/state.py",
+      "size": 962,
+      "mtime": 1760817819.4842827,
+      "hash": "ba6fbd023978d54de9525ef4d38f9c8e",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/tools/planner.py",
+      "size": 12221,
+      "mtime": 1760818051.809093,
+      "hash": "7cfe28c3840ca16385c45b7a36ee2cd0",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/tools/file_index.py",
+      "size": 6532,
+      "mtime": 1760817901.2031596,
+      "hash": "2c38aaa836424ef20363926e3262c5ba",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/tools/tester.py",
+      "size": 3630,
+      "mtime": 1760817996.3709822,
+      "hash": "75626bf8dafda7746db647d258f1da32",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/tools/__init__.py",
+      "size": 32,
+      "mtime": 1760817901.1676035,
+      "hash": "5bc66dc1e4f447bbc99b9c633c982ac3",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/tools/read_write.py",
+      "size": 8752,
+      "mtime": 1760818467.801624,
+      "hash": "cf906282f13cadeb742cbe97ea37e7ee",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/tools/executor.py",
+      "size": 5274,
+      "mtime": 1760817996.3482869,
+      "hash": "69cb2835ea4c923c64bdab5be2540aef",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/utils/logging.py",
+      "size": 3210,
+      "mtime": 1760817864.9387136,
+      "hash": "48f41906f96fda2d6e657196c4501240",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/utils/__init__.py",
+      "size": 35,
+      "mtime": 1760817864.8845484,
+      "hash": "06f41165a16767d09814d01f84143513",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/utils/diffs.py",
+      "size": 2778,
+      "mtime": 1760817864.9226718,
+      "hash": "431201c7ad944b6c556a0d0c9343ed37",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/utils/ignore.py",
+      "size": 2375,
+      "mtime": 1760817864.906093,
+      "hash": "0ef6d4180fb55e422674661b08def2d0",
+      "language": "python"
+    },
+    {
+      "path": "pitcrew/templates/AGENT.md.j2",
+      "size": 1838,
+      "mtime": 1760818088.2986205,
+      "hash": "fe84627881087686db67f0003bd5971d",
+      "language": null
+    },
+    {
+      "path": "pitcrew/templates/CLAUDE.md.j2",
+      "size": 2061,
+      "mtime": 1760818088.2765727,
+      "hash": "2801c4f0262ec03e9f60150eb1bcc00c",
+      "language": null
+    }
+  ],
+  "summary": {
+    "total_files": 34,
+    "total_size": 143419,
+    "languages": {
+      "shell": 1,
+      "toml": 1,
+      "markdown": 3,
+      "python": 23,
+      "json": 1
+    }
+  }
+}

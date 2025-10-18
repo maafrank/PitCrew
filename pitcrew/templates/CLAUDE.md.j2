@@ -1,0 +1,95 @@
+# {{ project_name }}
+
+## Project Overview
+
+*This section should contain a brief description of the project's purpose and goals.*
+
+## Tech Stack & Conventions
+
+{% if languages %}**Languages:** {{ languages | join(', ') }}{% endif %}
+
+**Code Style:**
+- Follow language-specific best practices
+- Use meaningful variable and function names
+- Keep functions focused and single-purpose
+- Write docstrings/comments for public APIs
+
+## How to Run
+
+{% if has_python %}
+**Python:**
+```bash
+# Install dependencies
+pip install -r requirements.txt
+# or
+pip install -e .
+
+# Run main script
+python main.py
+```
+{% endif %}
+
+{% if has_javascript %}
+**Node.js:**
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+```
+{% endif %}
+
+{% if has_go %}
+**Go:**
+```bash
+# Build
+go build
+
+# Run
+go run main.go
+```
+{% endif %}
+
+## How to Test
+
+{% if test_command %}
+```bash
+{{ test_command }}
+```
+{% else %}
+*No test framework detected. Consider adding tests.*
+{% endif %}
+
+## Architecture Map
+
+```
+{{ file_tree }}
+```
+
+## Editing Rules
+
+- **Prefer patches over full rewrites:** When making small changes, use unified diffs
+- **Organize into classes/functions:** Group related functionality together
+- **Validate input:** Check preconditions and handle edge cases
+- **Handle errors gracefully:** Use try/except blocks and provide helpful error messages
+- **Keep changes focused:** Each edit should have a clear, single purpose
+
+## Task Guide for PitCrew
+
+When working with this codebase:
+
+1. **Planning:** Always use `/plan` before making changes to review the approach
+2. **Reading files:** Use `/read` to examine files before editing
+3. **Testing:** Run `/test` after making changes to verify functionality
+4. **Committing:** Use `/apply` to execute planned edits atomically
+
+## Non-Negotiables
+
+- Never commit sensitive information (API keys, passwords, tokens)
+- Always run tests before finalizing changes
+- Maintain backward compatibility when modifying public APIs
+- Document complex algorithms and business logic

@@ -7,7 +7,9 @@ PitCrew is an interactive terminal application that lets you edit code using nat
 ## ✨ Key Features
 
 - 💬 **Natural Language Interface**: Chat naturally - "Add error handling to login" or "Tell me about this project"
-- 🤖 **AI-Powered Planning**: Intelligent multi-file edit plans using GPT-4 or Claude
+- 🤖 **Agentic Code Exploration**: Automatically explores files, reads code, and gathers information to answer questions
+- 🌊 **Streaming Responses**: Real-time token-by-token streaming for instant feedback
+- 🧠 **AI-Powered Planning**: Intelligent multi-file edit plans using GPT-4 or Claude
 - ⚡ **Autonomous Execution**: Automatically plans → applies → tests your changes
 - 📝 **Smart File Operations**: Read, write, patch with safety checks
 - 🔄 **Snapshot & Undo**: Automatic backups before changes
@@ -56,7 +58,12 @@ pitcrew /path/to/project
 
 ```
 pitcrew> Tell me about this project
-🤖 This is a Python project with 42 files...
+🔧 Using list_files...
+🔧 Using read_file...
+🤖 This is PitCrew, a terminal-based code editing bot built with LangGraph.
+   It provides an interactive REPL for planning, applying multi-file edits,
+   and executing commands with AI assistance. The project uses Python 3.x
+   with OpenAI and Anthropic LLM providers...
 
 pitcrew> Add input validation to the login function with tests
 🤖 Planning...
@@ -65,7 +72,10 @@ Apply? (y/N): y
 ✅ Done! All tests pass.
 
 pitcrew> What's in the config file?
-🤖 [Shows and explains config.py]
+🔧 Using read_file...
+🤖 The config.py file handles configuration loading from environment
+   variables and .env files. It includes settings for API keys, model
+   selection, execution timeouts, and safety policies...
 
 pitcrew> Run the tests
 🧪 Running tests...
@@ -154,8 +164,9 @@ pitcrew/
 
 1. **Intent Detection**: LLM determines what you want (query, plan, read, execute, test)
 2. **Context Gathering**: Loads project info, CLAUDE.md, conversation history
-3. **Execution**: Routes to appropriate handler (query, autonomous, etc.)
-4. **Response**: Clear, actionable feedback with next steps
+3. **Agentic Exploration**: For questions, automatically uses tools to explore code (list files, read files, search)
+4. **Execution**: Routes to appropriate handler (query, autonomous, etc.)
+5. **Streaming Response**: Real-time token-by-token output for instant feedback
 
 ### Example Flow
 
@@ -222,13 +233,13 @@ mypy pitcrew/
 - ✅ OpenAI + Anthropic support
 
 ### Future
-- 🔜 Streaming LLM responses
 - 🔜 File finder (fuzzy search)
 - 🔜 Git integration (commit, branch, PR)
 - 🔜 Multi-turn plan refinement
 - 🔜 VS Code extension
 - 🔜 Voice input
 - 🔜 RAG for large codebases
+- 🔜 Web UI option
 
 ## 🤝 Contributing
 

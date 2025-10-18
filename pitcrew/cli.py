@@ -11,7 +11,11 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 from pitcrew.config import Config
+from pitcrew.conversation import ConversationContext
 from pitcrew.graph import PitCrewGraph
+from pitcrew.handlers.autonomous import AutonomousHandler
+from pitcrew.handlers.query import QueryHandler
+from pitcrew.intent import IntentDetector
 from pitcrew.llm import LLM
 from pitcrew.utils.logging import SessionLogger
 
@@ -38,6 +42,15 @@ class REPL:
         self.last_plan = None
         self.allow_edits = False
         self.running = True
+
+        # Initialize NL components
+        self.conversation = ConversationContext()
+        self.intent_detector = IntentDetector(self.graph.llm)
+        self.query_handler = QueryHandler(self.graph, self.graph.llm)
+        self.autonomous_handler = AutonomousHandler(self.graph, self.conversation)
+
+        # Set initial system prompt
+        self._initialize_conversation()
 
     def start(self) -> None:
         """Start the REPL."""
@@ -223,8 +236,111 @@ class REPL:
         Args:
             text: User's natural language request
         """
-        console.print("[yellow]Natural language processing not yet implemented.[/yellow]")
-        console.print("[dim]For now, use /plan <your goal> to generate a plan.[/dim]")
+        # Add user message to conversation
+        self.conversation.add_message("user", text)
+
+        # Detect intent
+        try:
+            context_summary = self.conversation.get_context_summary()
+            intent = self.intent_detector.detect(text, context_summary)
+
+            # Log intent if verbose
+            # console.print(f"[dim]Intent: {intent.action} (confidence: {intent.confidence:.2f})[/dim]")
+
+            # Route based on intent
+            if intent.action == "query":
+                response = self.query_handler.handle(text, self.conversation)
+                console.print(f"\n{response}\n")
+                self.conversation.add_message("assistant", response)
+
+            elif intent.action == "plan":
+                # Use autonomous handler for planning and execution
+                response = self.autonomous_handler.handle(text, auto_apply=False)
+                console.print(f"\n{response}\n")
+                self.conversation.add_message("assistant", response)
+
+            elif intent.action == "read":
+                # Extract file path from intent or ask LLM to find it
+                file_path = self._extract_file_path(text, intent.target)
+                if file_path:
+                    result = self.graph.handle_read(file_path)
+                    console.print(f"\n{result}\n")
+                    self.conversation.add_file_read(file_path)
+                    self.conversation.add_message("assistant", f"Showed contents of {file_path}")
+                else:
+                    console.print(
+                        "[yellow]Couldn't determine which file to read. "
+                        "Try: /read <filename>[/yellow]"
+                    )
+
+            elif intent.action == "execute":
+                # Extract command or use target
+                command = intent.target or text.replace("run ", "").replace("execute ", "")
+                result = self.graph.handle_exec(command)
+                console.print(f"\n{result}\n")
+                self.conversation.add_message("assistant", f"Executed: {command}")
+
+            elif intent.action == "test":
+                result = self.graph.handle_test()
+                console.print(f"\n{result}\n")
+                self.conversation.add_message("assistant", "Ran tests")
+
+            elif intent.action == "help":
+                self.show_help()
+
+            elif intent.action == "config":
+                self.handle_command("/config")
+
+            else:
+                # Fallback to query
+                response = self.query_handler.handle(text, self.conversation)
+                console.print(f"\n{response}\n")
+                self.conversation.add_message("assistant", response)
+
+        except Exception as e:
+            console.print(f"[red]Error processing request: {e}[/red]")
+            console.print("[dim]You can try rephrasing or use /help for slash commands.[/dim]")
+
+    def _initialize_conversation(self) -> None:
+        """Initialize the conversation with system prompt."""
+        system_prompt = """You are PitCrew, an AI coding assistant. You help developers by:
+- Answering questions about their codebase
+- Planning and implementing code changes
+- Running tests and commands
+- Explaining code and architecture
+
+Be concise, helpful, and action-oriented. Always confirm before making changes."""
+
+        self.conversation.set_system_prompt(system_prompt)
+
+    def _extract_file_path(self, text: str, target: Optional[str]) -> Optional[str]:
+        """Extract file path from natural language input.
+
+        Args:
+            text: User input
+            target: Intent target
+
+        Returns:
+            File path if found, None otherwise
+        """
+        import re
+
+        # Try to find file patterns in the text
+        # Look for common file extensions
+        patterns = [
+            r'([a-zA-Z0-9_/\-\.]+\.(py|js|ts|java|go|rb|cpp|c|h|md|txt|json|yaml|yml))',
+            r'([a-zA-Z0-9_/\-\.]+)',
+        ]
+
+        for pattern in patterns:
+            matches = re.findall(pattern, text)
+            if matches:
+                # Return first match
+                if isinstance(matches[0], tuple):
+                    return matches[0][0]
+                return matches[0]
+
+        return target
 
     def show_help(self) -> None:
         """Show help message."""

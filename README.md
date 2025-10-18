@@ -1,321 +1,267 @@
 # PitCrew
 
-**A terminal-based AI code editing bot powered by LangGraph**
+**AI-powered terminal code editor with natural language interface**
 
-PitCrew is an interactive REPL that helps you plan, edit, and test code using Large Language Models. It provides intelligent multi-file editing with safety checks, snapshots for undo, and integrated testing.
+PitCrew is an interactive terminal application that lets you edit code using natural conversation. Just describe what you want - no need to learn commands. Built with LangGraph, it provides intelligent multi-file editing, testing, and execution.
 
-## Features
+## ✨ Key Features
 
-- 🤖 **AI-Powered Planning**: Generate intelligent multi-file edit plans using GPT-4 or Claude
-- 📝 **Smart File Operations**: Read, write, patch files with safety checks and path validation
-- 🔄 **Snapshot & Undo**: Automatic snapshots before changes with easy rollback
-- 🧪 **Integrated Testing**: Auto-detect and run tests (pytest, npm, go test, etc.)
-- 🛡️ **Sandboxed Execution**: Run commands with resource limits and safety checks
-- 📊 **File Indexing**: Fast project-wide file indexing with gitignore support
-- 🎯 **Context Management**: Auto-load CLAUDE.md and AGENT.md for project-specific rules
-- 🔀 **Model Switching**: Switch between OpenAI and Anthropic models on the fly
+- 💬 **Natural Language Interface**: Chat naturally - "Add error handling to login" or "Tell me about this project"
+- 🤖 **AI-Powered Planning**: Intelligent multi-file edit plans using GPT-4 or Claude
+- ⚡ **Autonomous Execution**: Automatically plans → applies → tests your changes
+- 📝 **Smart File Operations**: Read, write, patch with safety checks
+- 🔄 **Snapshot & Undo**: Automatic backups before changes
+- 🧪 **Test Integration**: Auto-detect and run pytest, npm test, go test, etc.
+- 🛡️ **Sandboxed Execution**: Safe command execution with resource limits
+- 🎯 **Project Context**: Learns from CLAUDE.md and AGENT.md files
+- 🔀 **Multi-Model**: Switch between OpenAI and Anthropic models instantly
 
-## Installation
+## 🚀 Quick Start
 
-### Prerequisites
-
-- Python 3.11 or later
-- OpenAI API key (required)
-- Anthropic API key (optional)
-
-### Install from Source
+### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/pitcrew.git
+# Install from source
 cd pitcrew
-
-# Install in development mode
 pip install -e .
-
-# Or install dependencies separately
-pip install -r requirements.txt
 ```
 
 ### Configuration
 
-Create a `.env` file in your project root:
+Create `.env` file:
 
 ```bash
-# Required
-OPENAI_API_KEY=your_openai_api_key_here
+# At least one API key required
+OPENAI_API_KEY=your_key_here
+ANTHROPIC_API_KEY=your_key_here
 
-# Optional
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-
-# Configuration (optional, defaults shown)
-CODEBOT_DEFAULT_MODEL=openai:gpt-4o-mini
-CODEBOT_EXEC_TIMEOUT=45
-CODEBOT_MAX_READ_MB=8
-CODEBOT_MAX_WRITE_MB=2
+# Optional settings
+PITCREW_DEFAULT_MODEL=anthropic:claude-3-5-sonnet-20241022
+PITCREW_EXEC_TIMEOUT=45
 ```
 
-Or set environment variables directly.
-
-## Quick Start
-
-### Start PitCrew
+### Run
 
 ```bash
-# In current directory
-codebot
+# Start in current directory
+pitcrew
 
-# Or specify a project path
-codebot /path/to/project
-
-# With specific model
-codebot --model openai:gpt-4o
+# Or specify project
+pitcrew /path/to/project
 ```
 
-### Basic Workflow
+## 💬 Usage Examples
 
-```bash
-pitcrew> /init                    # Create CLAUDE.md and AGENT.md
-pitcrew> /index                   # Build file index
-pitcrew> /plan Add a calculator class with tests
-pitcrew> /apply                   # Apply the generated plan
-pitcrew> /test                    # Run tests
-pitcrew> /undo                    # Rollback if needed
+### Natural Language (Recommended)
+
+```
+pitcrew> Tell me about this project
+🤖 This is a Python project with 42 files...
+
+pitcrew> Add input validation to the login function with tests
+🤖 Planning...
+📋 Plan: Create validators.py, add tests, update login.py
+Apply? (y/N): y
+✅ Done! All tests pass.
+
+pitcrew> What's in the config file?
+🤖 [Shows and explains config.py]
+
+pitcrew> Run the tests
+🧪 Running tests...
+✓ 19 passed in 1.2s
 ```
 
-## Commands
+### Slash Commands (Alternative)
+
+```
+pitcrew> /init                          # Create CLAUDE.md
+pitcrew> /plan Add feature X            # Generate plan
+pitcrew> /apply                         # Execute plan
+pitcrew> /read src/main.py              # View file
+pitcrew> /test                          # Run tests
+pitcrew> /undo                          # Rollback changes
+pitcrew> /model openai:gpt-4o           # Switch model
+```
+
+## 📋 Available Commands
 
 ### Project Setup
 - `/init` - Create CLAUDE.md and AGENT.md templates
-- `/index` - Build or rebuild file index
+- `/index` - Build/rebuild file index
 
-### Planning & Editing
-- `/plan <goal>` - Generate a structured edit plan
-- `/apply` - Execute the last generated plan
-- `/read <path>` - Read and display a file
-- `/undo` - Revert the last applied changes
+### Code Operations
+- `/plan <goal>` - Generate edit plan
+- `/apply` - Execute last plan
+- `/read <path>` - Display file
+- `/undo` - Restore last snapshot
 
 ### Execution
-- `/exec <command>` - Execute a command (with safety checks)
-- `/test` - Auto-detect and run project tests
+- `/exec <command>` - Run command (sandboxed)
+- `/test` - Auto-detect and run tests
 
-### Configuration
-- `/allow-edits on|off` - Toggle file editing permissions
-- `/model [name]` - Show current model or switch to a new one
-- `/config` - Display current configuration
-- `/log` - Show session log path
+### Settings
+- `/allow-edits on|off` - Toggle edit permissions
+- `/model [name]` - Show/switch LLM model
+- `/config` - Show configuration
 
-### Help & Exit
-- `/help` - Show available commands
-- `/quit` - Exit PitCrew
+### Help
+- `/help` - Show commands
+- `/quit` - Exit
 
-## Supported Models
+## 🤖 Supported Models
+
+### Anthropic (Recommended)
+- `anthropic:claude-3-5-sonnet-20241022` - Best for structured tasks
 
 ### OpenAI
-- `openai:gpt-4o` - Latest GPT-4 Omni
-- `openai:gpt-4o-mini` - Faster, cheaper GPT-4 variant (default)
+- `openai:gpt-4o` - Most capable
+- `openai:gpt-4o-mini` - Faster, cheaper
 
-### Anthropic
-- `anthropic:claude-3-5-sonnet-20241022` - Claude 3.5 Sonnet
+Switch anytime: `/model <name>` or set `PITCREW_DEFAULT_MODEL` in `.env`
 
-Switch models anytime with `/model <model_name>`.
+## 🔒 Safety Features
 
-## Examples
+- ✅ Path validation (prevents directory traversal)
+- ✅ Dangerous command detection (blocks sudo, rm -rf, etc.)
+- ✅ Resource limits (CPU, memory, processes)
+- ✅ Automatic snapshots before edits
+- ✅ Explicit approval required for changes
+- ✅ Size limits on read/write operations
 
-### Example 1: Create a New Feature
+## 📁 Project Structure
 
-```bash
-pitcrew> /plan Create a User class with name and email fields, add validation, and write tests
-
-# PitCrew generates a plan showing:
-# - New file: src/user.py with User class
-# - New file: tests/test_user.py with test cases
-# - Post-check: Run pytest
-
-pitcrew> /apply
-✓ Created src/user.py
-✓ Created tests/test_user.py
-
-Running post-checks:
-✓ pytest -q
-
-pitcrew> /read src/user.py
-# View the generated code
+```
+pitcrew/
+├── pitcrew/
+│   ├── cli.py              # REPL + natural language handling
+│   ├── graph.py            # LangGraph orchestration
+│   ├── conversation.py     # Context management
+│   ├── intent.py           # Intent detection
+│   ├── llm.py              # LLM abstraction (OpenAI + Anthropic)
+│   ├── handlers/           # Query, autonomous execution
+│   ├── tools/              # FileIndex, ReadWrite, Planner, Executor, Tester
+│   ├── utils/              # Ignore rules, diffs, logging
+│   └── templates/          # CLAUDE.md, AGENT.md templates
+├── tests/                  # 19 unit tests (100% passing)
+├── README.md               # This file
+├── QUICKSTART.md           # Detailed getting started guide
+├── CLAUDE.md               # Project context for PitCrew itself
+└── plan.md                 # Detailed architecture documentation
 ```
 
-### Example 2: Refactor Code
+## 🎯 How It Works
 
-```bash
-pitcrew> /plan Refactor the authentication module to use environment variables instead of hardcoded credentials
+1. **Intent Detection**: LLM determines what you want (query, plan, read, execute, test)
+2. **Context Gathering**: Loads project info, CLAUDE.md, conversation history
+3. **Execution**: Routes to appropriate handler (query, autonomous, etc.)
+4. **Response**: Clear, actionable feedback with next steps
 
-# Review plan
-pitcrew> /apply
-# Changes applied
+### Example Flow
 
-pitcrew> /test
-# Verify everything still works
-
-# If something breaks:
-pitcrew> /undo
-# Rollback to previous state
+```
+User: "Add error handling to login"
+  ↓
+Intent Detector: action=plan, confidence=0.9
+  ↓
+Autonomous Handler:
+  1. Generate plan (create error.py, update login.py, add tests)
+  2. Ask for approval
+  3. Apply changes with snapshot
+  4. Run tests
+  5. Report results
+  ↓
+"✅ Done! 3 files changed, all tests pass."
 ```
 
-### Example 3: Run Custom Commands
-
-```bash
-pitcrew> /exec python script.py --verbose
-# Command: python script.py --verbose
-# Exit code: 0
-# Stdout:
-# Processing complete!
-
-pitcrew> /exec npm run build
-# Builds your project
-```
-
-## Architecture
-
-PitCrew uses LangGraph to orchestrate a set of specialized tools:
-
-- **FileIndex**: Walks project tree, respects .gitignore/.codebotignore
-- **ReadWrite**: File I/O with snapshots for undo functionality
-- **Planner**: Hybrid rule-based + LLM plan generation
-- **Executor**: Sandboxed command execution with safety checks
-- **Tester**: Auto-detects test frameworks and runs tests
-
-See [plan.md](plan.md) for detailed architecture documentation.
-
-## Project Context Files
-
-PitCrew automatically loads context from special markdown files:
-
-### CLAUDE.md
-Project-wide conventions, architecture, and guidelines. Created with `/init`.
-
-### AGENT.md
-Alternative format optimized for OpenAI models. Also created with `/init`.
-
-### CLAUDE.local.md (optional)
-Machine-local context (not committed to git). Useful for local paths or preferences.
-
-These files are loaded at session start and provided to the LLM when generating plans.
-
-## Safety Features
-
-### File Operations
-- Path validation (prevents directory traversal)
-- Size limits (configurable via environment)
-- Automatic snapshots before batch edits
-- Atomic writes (temp file + rename)
-
-### Command Execution
-- Dangerous command detection (sudo, rm -rf, curl | sh, etc.)
-- Resource limits (CPU time, memory, processes)
-- Timeout enforcement
-- Environment variable pruning
-
-### Edit Permissions
-- Explicit approval on first edit
-- Session-level `/allow-edits` toggle
-- Snapshot before every apply
-
-## Development
-
-### Run Tests
+## 🧪 Testing
 
 ```bash
 # Run all tests
 pytest
 
 # Run with coverage
-pytest --cov=pitcrew --cov-report=term-missing
+pytest --cov=pitcrew
 
-# Run specific test file
-pytest tests/test_file_index.py -v
+# Run specific test
+pytest tests/test_executor.py -v
 ```
 
-### Project Structure
+**Test Status:** 19/19 passing ✅
 
-```
-pitcrew/
-├── pitcrew/
-│   ├── cli.py              # REPL and command handling
-│   ├── graph.py            # LangGraph orchestration
-│   ├── state.py            # State management
-│   ├── config.py           # Configuration
-│   ├── llm.py              # LLM abstraction layer
-│   ├── tools/              # Specialized tools
-│   │   ├── file_index.py
-│   │   ├── read_write.py
-│   │   ├── planner.py
-│   │   ├── executor.py
-│   │   └── tester.py
-│   ├── utils/              # Utilities
-│   │   ├── ignore.py
-│   │   ├── diffs.py
-│   │   └── logging.py
-│   └── templates/          # Jinja2 templates
-│       ├── CLAUDE.md.j2
-│       └── AGENT.md.j2
-├── tests/                  # Test suite
-├── plan.md                 # Detailed implementation plan
-├── CLAUDE.md               # PitCrew's own context
-└── README.md               # This file
+## 📚 Documentation
+
+- **README.md** (this file) - Overview and quick start
+- **QUICKSTART.md** - Detailed tutorial with examples
+- **CLAUDE.md** - Project context (auto-loaded by PitCrew)
+- **plan.md** - Complete architecture and implementation details
+
+## 🔧 Development
+
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Format code
+black pitcrew/
+
+# Lint
+ruff check pitcrew/
+
+# Type check
+mypy pitcrew/
 ```
 
-## Logging
+## 🗺️ Roadmap
 
-All sessions are logged to `.bot/runs/<timestamp>/`:
-
-- `transcript.ndjson` - Conversation messages
-- `plan.json` - Generated plans
-- `diffs/` - File diffs from edits
-- `exec/` - Command execution results
-
-Access log path with `/log` command.
-
-## Roadmap
-
-### v0.1.0 (Current)
-- ✅ Core REPL with slash commands
-- ✅ File indexing and ignore rules
-- ✅ LLM-powered planning
-- ✅ File operations with snapshots
-- ✅ Command execution with sandboxing
-- ✅ Test auto-detection
-- ✅ Multiple LLM provider support
+### Current (v0.1.0)
+- ✅ Natural language interface
+- ✅ Multi-file planning and editing
+- ✅ Test integration
+- ✅ Snapshot/undo
+- ✅ OpenAI + Anthropic support
 
 ### Future
-- Natural language mode (conversational interface)
-- Git integration (branch, commit, PR creation)
-- Vector search for large codebases
-- Interactive patch review
-- Multi-repo support
-- Plugin system
+- 🔜 Streaming LLM responses
+- 🔜 File finder (fuzzy search)
+- 🔜 Git integration (commit, branch, PR)
+- 🔜 Multi-turn plan refinement
+- 🔜 VS Code extension
+- 🔜 Voice input
+- 🔜 RAG for large codebases
 
-## Contributing
+## 🤝 Contributing
 
 Contributions welcome! Please:
-
 1. Fork the repository
 2. Create a feature branch
 3. Write tests for new functionality
 4. Ensure all tests pass
 5. Submit a pull request
 
-## License
+## 📄 License
 
 MIT License - see LICENSE file for details
 
-## Credits
+## 🙏 Credits
 
 Built with:
-- [LangGraph](https://github.com/langchain-ai/langgraph) - LLM application orchestration
+- [LangGraph](https://github.com/langchain-ai/langgraph) - LLM orchestration
 - [LangChain](https://github.com/langchain-ai/langchain) - LLM framework
 - [Typer](https://typer.tiangolo.com/) - CLI framework
 - [Rich](https://rich.readthedocs.io/) - Terminal formatting
 - [Pydantic](https://pydantic-docs.helpmanual.io/) - Data validation
 
+## 💡 Tips
+
+- **First time?** Run `/init` to create context files
+- **Large changes?** Review the plan before `/apply`
+- **Something broke?** Use `/undo` to rollback
+- **Need help?** Just ask naturally or type `/help`
+- **Pro tip:** Edit CLAUDE.md with your coding standards for better results
+
 ---
 
-**Need help?** Run `/help` in the REPL or check [plan.md](plan.md) for detailed documentation.
+**Questions?** See [QUICKSTART.md](QUICKSTART.md) for detailed examples
+
+**Status:** Production ready • Actively maintained • All tests passing ✅

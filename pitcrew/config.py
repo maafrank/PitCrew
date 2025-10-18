@@ -65,11 +65,11 @@ class Config:
             langsmith_api_key=os.getenv("LANGSMITH_API_KEY"),
             langsmith_tracing=os.getenv("LANGSMITH_TRACING", "").lower() == "true",
             langsmith_project=os.getenv("LANGSMITH_PROJECT", "PitCrew"),
-            default_model=os.getenv("CODEBOT_DEFAULT_MODEL", DEFAULT_MODEL),
-            exec_timeout=int(os.getenv("CODEBOT_EXEC_TIMEOUT", DEFAULT_EXEC_TIMEOUT)),
-            exec_net_policy=os.getenv("CODEBOT_EXEC_NET", DEFAULT_EXEC_NET_POLICY),
-            max_read_mb=int(os.getenv("CODEBOT_MAX_READ_MB", DEFAULT_MAX_READ_MB)),
-            max_write_mb=int(os.getenv("CODEBOT_MAX_WRITE_MB", DEFAULT_MAX_WRITE_MB)),
+            default_model=os.getenv("PITCREW_DEFAULT_MODEL", DEFAULT_MODEL),
+            exec_timeout=int(os.getenv("PITCREW_EXEC_TIMEOUT", DEFAULT_EXEC_TIMEOUT)),
+            exec_net_policy=os.getenv("PITCREW_EXEC_NET", DEFAULT_EXEC_NET_POLICY),
+            max_read_mb=int(os.getenv("PITCREW_MAX_READ_MB", DEFAULT_MAX_READ_MB)),
+            max_write_mb=int(os.getenv("PITCREW_MAX_WRITE_MB", DEFAULT_MAX_WRITE_MB)),
         )
 
         # Load project-specific config if available

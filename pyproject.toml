@@ -48,7 +48,7 @@ dev = [
 ]
 
 [project.scripts]
-codebot = "pitcrew.cli:app"
+pitcrew = "pitcrew.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["."]

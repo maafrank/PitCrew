@@ -284,11 +284,12 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
         else:
             return f"Error reading {path}: {error}"
 
-    def handle_plan(self, goal: str) -> tuple[Any, str]:
+    def handle_plan(self, goal: str, conversation_history: list[dict] = None) -> tuple[Any, str]:
         """Handle /plan command - generate an edit plan.
 
         Args:
             goal: User's goal
+            conversation_history: Recent conversation messages for context
 
         Returns:
             Tuple of (plan_dict, summary_message)
@@ -302,8 +303,8 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
         # Load context docs
         context_docs = self._load_context_docs()
 
-        # Generate plan
-        plan = self.planner.make_plan(goal, index, context_docs)
+        # Generate plan with conversation context
+        plan = self.planner.make_plan(goal, index, context_docs, conversation_history or [])
 
         # Save plan
         if self.logger:
@@ -355,11 +356,27 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
                     messages.append(f"✗ Failed to replace {edit.path}: {error}")
 
             elif edit.action == "patch":
-                result = self.read_write.patch(edit.path, edit.patch_unified or "")
-                if result.success:
-                    messages.append(f"✓ Patched {edit.path}")
+                # Check if this is actually a file creation patch (@@ -0,0 +...)
+                patch_content = edit.patch_unified or ""
+                if "@@ -0,0 +" in patch_content:
+                    # Extract content from patch
+                    lines = []
+                    for line in patch_content.split('\n'):
+                        if line.startswith('+') and not line.startswith('+++'):
+                            lines.append(line[1:])  # Remove the '+' prefix
+                    content = '\n'.join(lines)
+                    success, error = self.read_write.write(edit.path, content)
+                    if success:
+                        messages.append(f"✓ Created {edit.path} (from patch)")
+                    else:
+                        messages.append(f"✗ Failed to create {edit.path}: {error}")
                 else:
-                    messages.append(f"✗ Failed to patch {edit.path}: {result.error}")
+                    # Normal patch
+                    result = self.read_write.patch(edit.path, patch_content)
+                    if result.success:
+                        messages.append(f"✓ Patched {edit.path}")
+                    else:
+                        messages.append(f"✗ Failed to patch {edit.path}: {result.error}")
 
             elif edit.action == "delete":
                 file_path = self.project_root / edit.path
@@ -373,11 +390,16 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
         if plan.post_checks:
             messages.append("\nRunning post-checks:")
             for check in plan.post_checks:
-                result = self.executor.run(check.command, sandbox=True)
+                # Fix common command issues (python -> python3 on macOS)
+                command = check.command
+                if command.startswith("python ") or command == "python":
+                    command = command.replace("python", "python3", 1)
+
+                result = self.executor.run(command, sandbox=True)
                 if result.success:
-                    messages.append(f"✓ {check.command}")
+                    messages.append(f"✓ {command}")
                 else:
-                    messages.append(f"✗ {check.command} (exit code: {result.exit_code})")
+                    messages.append(f"✗ {command} (exit code: {result.exit_code})")
                     if result.stderr:
                         messages.append(f"  {result.stderr[:200]}")
 

@@ -64,6 +64,7 @@ class Planner:
         goal: str,
         index: FileIndexSnapshot,
         context_docs: list[str],
+        conversation_history: list[dict] = None,
     ) -> Plan:
         """Generate a plan to achieve a goal.
 
@@ -71,6 +72,7 @@ class Planner:
             goal: User's goal/request
             index: File index snapshot
             context_docs: Context from AGENTS.md, etc.
+            conversation_history: Recent conversation for context
 
         Returns:
             Plan object
@@ -79,7 +81,7 @@ class Planner:
         hints = self._analyze_goal(goal, index)
 
         # Generate plan using LLM
-        plan = self._generate_plan_llm(goal, index, context_docs, hints)
+        plan = self._generate_plan_llm(goal, index, context_docs, hints, conversation_history or [])
 
         # Validate and post-process
         plan = self._validate_plan(plan, index)
@@ -141,6 +143,7 @@ class Planner:
         index: FileIndexSnapshot,
         context_docs: list[str],
         hints: dict[str, Any],
+        conversation_history: list[dict],
     ) -> Plan:
         """Generate plan using LLM.
 
@@ -149,15 +152,16 @@ class Planner:
             index: File index
             context_docs: Context documents
             hints: Hints from rule-based analysis
+            conversation_history: Recent conversation messages
 
         Returns:
             Plan object
         """
-        # Build system prompt
+        # Build system prompt with context docs
         system_prompt = self._build_system_prompt(context_docs, hints)
 
-        # Build user prompt
-        user_prompt = self._build_user_prompt(goal, index)
+        # Build user prompt with conversation history
+        user_prompt = self._build_user_prompt(goal, index, conversation_history)
 
         # Define tools/schema for plan generation
         plan_schema = {
@@ -247,11 +251,38 @@ class Planner:
                     # Ensure nested fields are parsed correctly
                     # Sometimes edits/post_checks come as JSON strings
                     if "edits" in plan_data and isinstance(plan_data["edits"], str):
-                        plan_data["edits"] = json.loads(plan_data["edits"])
+                        try:
+                            # First try normal JSON parse
+                            plan_data["edits"] = json.loads(plan_data["edits"])
+                        except json.JSONDecodeError as e:
+                            print(f"DEBUG: Failed to parse edits JSON: {e}")
+                            print(f"DEBUG: Edits string (first 500 chars): {plan_data['edits'][:500]}")
+
+                            # Try to fix common issues with Python triple-quoted strings in JSON
+                            # Replace """ with properly escaped quotes
+                            edits_str = plan_data['edits']
+                            # This is a hack but sometimes the LLM uses Python triple quotes in JSON
+                            edits_str = edits_str.replace('"""', '"')
+
+                            try:
+                                plan_data["edits"] = json.loads(edits_str)
+                                print("DEBUG: Successfully parsed after fixing triple quotes")
+                            except json.JSONDecodeError:
+                                print("DEBUG: Still failed after fixes, returning empty edits")
+                                # If it still fails, set to empty list
+                                plan_data["edits"] = []
+
                     if "post_checks" in plan_data and isinstance(plan_data["post_checks"], str):
-                        plan_data["post_checks"] = json.loads(plan_data["post_checks"])
+                        try:
+                            plan_data["post_checks"] = json.loads(plan_data["post_checks"])
+                        except json.JSONDecodeError:
+                            plan_data["post_checks"] = []
+
                     if "files_to_read" in plan_data and isinstance(plan_data["files_to_read"], str):
-                        plan_data["files_to_read"] = json.loads(plan_data["files_to_read"])
+                        try:
+                            plan_data["files_to_read"] = json.loads(plan_data["files_to_read"])
+                        except json.JSONDecodeError:
+                            plan_data["files_to_read"] = []
 
                     return Plan(**plan_data)
 
@@ -300,12 +331,20 @@ class Planner:
             "You are an expert code planning assistant. Your task is to generate structured "
             "plans for code modifications.",
             "",
+            "CRITICAL JSON RULES:",
+            "- For 'content' field: Keep code VERY simple - use placeholder comments instead of full implementations",
+            "- Example good content: '# TODO: Implement SummaryConfig class with max_length and temperature params'",
+            "- Example BAD content: Full class implementations with methods - this breaks JSON parsing",
+            "- Use SINGLE quotes or escaped double quotes in content strings",
+            "- NO triple quotes ('''  or \"\"\") anywhere in content",
+            "",
             "Guidelines:",
-            "- Prefer patches over full file replacements when making small changes",
-            "- Organize code into classes and functions",
-            "- Always include tests when adding new functionality",
-            "- Keep changes minimal and focused",
-            "- Validate that files exist before editing (or mark for creation)",
+            "- Use 'create' action for new files",
+            "- Use 'replace' action to replace entire existing files",
+            "- AVOID 'patch' action",
+            "- Keep 'content' minimal with TODO comments explaining what should be implemented",
+            "- Always include test file placeholders",
+            "- Focus on file structure and purpose, not full implementations",
         ]
 
         if hints["suggested_actions"]:
@@ -322,12 +361,13 @@ class Planner:
 
         return "\n".join(prompt_parts)
 
-    def _build_user_prompt(self, goal: str, index: FileIndexSnapshot) -> str:
+    def _build_user_prompt(self, goal: str, index: FileIndexSnapshot, conversation_history: list[dict] = None) -> str:
         """Build user prompt for plan generation.
 
         Args:
             goal: User's goal
             index: File index
+            conversation_history: Recent conversation messages
 
         Returns:
             User prompt string
@@ -342,10 +382,23 @@ class Planner:
         if len(index.files) > 50:
             file_tree += f"\n... and {len(index.files) - 50} more files"
 
+        # Include relevant conversation history (last 5 messages)
+        conversation_context = ""
+        if conversation_history:
+            recent_messages = conversation_history[-5:]  # Last 5 messages
+            conversation_context = "\n\nRecent conversation:\n"
+            for msg in recent_messages:
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                # Truncate long messages
+                if len(content) > 200:
+                    content = content[:200] + "..."
+                conversation_context += f"{role}: {content}\n"
+
         return f"""Goal: {goal}
 
 Project files:
-{file_tree}
+{file_tree}{conversation_context}
 
 Please create a structured plan to achieve this goal. Use the create_plan function."""
 

@@ -145,7 +145,9 @@ class REPL:
                     console.print("[red]Usage: /plan <goal>[/red]")
                     return
                 console.print(f"[dim]Generating plan for: {args}[/dim]\n")
-                plan_dict, summary = self.graph.handle_plan(args)
+                # Pass conversation history to planner
+                conversation_msgs = self.conversation.to_messages()
+                plan_dict, summary = self.graph.handle_plan(args, conversation_msgs)
                 self.last_plan = plan_dict
                 console.print(Panel(summary, title="Plan", border_style="green"))
                 console.print("\n[yellow]Use /apply to execute this plan[/yellow]")

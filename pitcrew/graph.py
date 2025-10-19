@@ -1,6 +1,7 @@
 """LangGraph orchestration and supervisor node."""
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -120,8 +121,14 @@ class PitCrewGraph:
         # Build file tree
         file_tree = self._build_file_tree(index)
 
-        # Categorize files by type
-        skip_extensions = {'.pdf', '.doc', '.docx', '.log', '.dat', '.bin', '.exe', '.zip', '.tar', '.gz'}
+        # Categorize files by type (only skip truly binary/non-code files)
+        skip_extensions = {
+            '.pdf', '.doc', '.docx', '.log', '.dat', '.bin', '.exe', '.zip', '.tar', '.gz',
+            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp',  # Images
+            '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',  # Videos
+            '.mp3', '.wav', '.ogg', '.flac',  # Audio
+            '.ttf', '.otf', '.woff', '.woff2',  # Fonts
+        }
 
         all_summaries = []
         files_read = 0
@@ -138,11 +145,18 @@ class PitCrewGraph:
                 files_skipped += 1
                 continue
 
-            console.print(f"  📄 Summarizing {file_path}...")
+            # Show file size for context
+            size_kb = file_size / 1024
+            size_str = f"{size_kb:.1f}KB" if size_kb < 1024 else f"{size_kb/1024:.1f}MB"
+            console.print(f"  📄 Summarizing {file_path} ({size_str})...")
+
             summary = self._summarize_file(file_path)
             if summary and not summary.startswith("Error"):
                 all_summaries.append(f"=== {file_path} ===\n{summary}")
                 files_read += 1
+
+                # Add delay to avoid rate limits (2 seconds between summaries)
+                time.sleep(2)
             else:
                 console.print(f"    ⚠️  Failed to summarize: {summary}")
                 files_skipped += 1
@@ -457,8 +471,31 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
         if not success:
             return f"Error reading {path}: {error}"
 
+        # Determine max chars based on file type
+        # Code files: more generous limit
+        # Data/markup files: stricter limit to avoid huge generated files
+        ext = Path(path).suffix.lower()
+        code_extensions = {'.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.go', '.rs', '.c', '.cpp', '.rb', '.php'}
+
+        if ext in code_extensions:
+            max_chars = 50_000  # ~12K tokens for code files
+        else:
+            max_chars = 20_000  # ~5K tokens for markup/data files (HTML, MD, JSON, etc)
+
+        truncated = False
+        original_length = len(content)
+        if len(content) > max_chars:
+            # For code files, try to get complete functions/classes
+            # For others, just take the beginning
+            content = content[:max_chars]
+            truncated = True
+
         # Create a standalone LLM call with NO conversation context
-        summary_prompt = f"""Analyze this file in DETAIL and provide a comprehensive technical summary.
+        truncation_note = ""
+        if truncated:
+            truncation_note = f"\n\n[NOTE: File was truncated from {original_length:,} to {max_chars:,} characters. Only analyzing the first portion.]"
+
+        summary_prompt = f"""Analyze this file in DETAIL and provide a comprehensive technical summary.{truncation_note}
 
 File: {path}
 
@@ -516,12 +553,24 @@ Structure your response EXACTLY as follows:
 
 Be EXHAUSTIVE. List EVERY class, EVERY method with full signatures, EVERY function. This documentation will be used by AI coding assistants."""
 
-        try:
-            messages = [{"role": "user", "content": summary_prompt}]
-            response = self.llm.complete(messages, temperature=0.3)
-            return response["content"]
-        except Exception as e:
-            return f"Error summarizing {path}: {str(e)}"
+        max_retries = 3
+        retry_delay = 10  # seconds (increased from 5)
+
+        for attempt in range(max_retries):
+            try:
+                messages = [{"role": "user", "content": summary_prompt}]
+                response = self.llm.complete(messages, temperature=0.3)
+                return response["content"]
+            except Exception as e:
+                error_msg = str(e)
+                # Check if it's a rate limit error
+                if "rate_limit_error" in error_msg or "429" in error_msg:
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (attempt + 1)  # Exponential backoff: 10s, 20s, 30s
+                        print(f"    ⚠️  Rate limit hit, waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                return f"Error summarizing {path}: {error_msg}"
 
     def _build_file_tree(self, index: Any) -> str:
         """Build a simple file tree representation.

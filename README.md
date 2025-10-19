@@ -15,7 +15,7 @@ PitCrew is an interactive terminal application that lets you edit code using nat
 - 🔄 **Snapshot & Undo**: Automatic backups before changes
 - 🧪 **Test Integration**: Auto-detect and run pytest, npm test, go test, etc.
 - 🛡️ **Sandboxed Execution**: Safe command execution with resource limits
-- 🎯 **Project Context**: Learns from CLAUDE.md and AGENT.md files
+- 🎯 **Project Context**: Learns from AGENTS.md files
 - 🔀 **Multi-Model**: Switch between OpenAI and Anthropic models instantly
 
 ## 🚀 Quick Start
@@ -85,7 +85,7 @@ pitcrew> Run the tests
 ### Slash Commands (Alternative)
 
 ```
-pitcrew> /init                          # Create CLAUDE.md
+pitcrew> /init                          # Create AGENTS.md
 pitcrew> /plan Add feature X            # Generate plan
 pitcrew> /apply                         # Execute plan
 pitcrew> /read src/main.py              # View file
@@ -97,7 +97,7 @@ pitcrew> /model openai:gpt-4o           # Switch model
 ## 📋 Available Commands
 
 ### Project Setup
-- `/init` - Create CLAUDE.md and AGENT.md templates
+- `/init` - Create AI-generated AGENTS.md file
 - `/index` - Build/rebuild file index
 
 ### Code Operations
@@ -151,19 +151,18 @@ pitcrew/
 │   ├── llm.py              # LLM abstraction (OpenAI + Anthropic)
 │   ├── handlers/           # Query, autonomous execution
 │   ├── tools/              # FileIndex, ReadWrite, Planner, Executor, Tester
-│   ├── utils/              # Ignore rules, diffs, logging
-│   └── templates/          # CLAUDE.md, AGENT.md templates
+│   └── utils/              # Ignore rules, diffs, logging
 ├── tests/                  # 19 unit tests (100% passing)
 ├── README.md               # This file
 ├── QUICKSTART.md           # Detailed getting started guide
-├── CLAUDE.md               # Project context for PitCrew itself
+├── CLAUDE.md               # Project context for Claude Code itself
 └── plan.md                 # Detailed architecture documentation
 ```
 
 ## 🎯 How It Works
 
 1. **Intent Detection**: LLM determines what you want (query, plan, read, execute, test)
-2. **Context Gathering**: Loads project info, CLAUDE.md, conversation history
+2. **Context Gathering**: Loads project info, AGENTS.md, conversation history
 3. **Agentic Exploration**: For questions, automatically uses tools to explore code (list files, read files, search)
 4. **Execution**: Routes to appropriate handler (query, autonomous, etc.)
 5. **Streaming Response**: Real-time token-by-token output for instant feedback
@@ -204,7 +203,7 @@ pytest tests/test_executor.py -v
 
 - **README.md** (this file) - Overview and quick start
 - **QUICKSTART.md** - Detailed tutorial with examples
-- **CLAUDE.md** - Project context (auto-loaded by PitCrew)
+- **CLAUDE.md** - Project context for Claude Code (this repo)
 - **plan.md** - Complete architecture and implementation details
 
 ## 🔧 Development
@@ -265,11 +264,11 @@ Built with:
 
 ## 💡 Tips
 
-- **First time?** Run `/init` to create context files
+- **First time?** Run `/init` to create an AI-generated AGENTS.md file
 - **Large changes?** Review the plan before `/apply`
 - **Something broke?** Use `/undo` to rollback
 - **Need help?** Just ask naturally or type `/help`
-- **Pro tip:** Edit CLAUDE.md with your coding standards for better results
+- **Pro tip:** Edit AGENTS.md with your coding standards for better results
 
 ---
 

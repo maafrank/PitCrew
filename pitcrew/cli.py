@@ -356,7 +356,7 @@ Be concise, helpful, and action-oriented. Always confirm before making changes."
         help_text = """
 **Available Commands:**
 
-- `/init` - Create CLAUDE.md and AGENT.md files
+- `/init` - Create AGENTS.md file
 - `/plan <goal>` - Generate a structured edit plan
 - `/apply` - Apply the last generated plan
 - `/read <path>` - Read a file

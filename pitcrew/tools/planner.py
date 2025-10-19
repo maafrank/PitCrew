@@ -70,7 +70,7 @@ class Planner:
         Args:
             goal: User's goal/request
             index: File index snapshot
-            context_docs: Context from CLAUDE.md, AGENT.md, etc.
+            context_docs: Context from AGENTS.md, etc.
 
         Returns:
             Plan object
@@ -260,7 +260,7 @@ class Planner:
         """Build system prompt for plan generation.
 
         Args:
-            context_docs: Context from CLAUDE.md, etc.
+            context_docs: Context from AGENTS.md, etc.
             hints: Rule-based hints
 
         Returns:

@@ -16,7 +16,7 @@ class BotState(TypedDict):
         last_plan: Most recent plan generated (dict)
         run_log_id: Session log directory ID
         policy: Execution policy settings
-        context_files: Paths to CLAUDE.md, AGENT.md, etc.
+        context_files: Paths to AGENTS.md, etc.
     """
 
     conversation: Annotated[list[dict], add]

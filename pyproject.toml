@@ -54,9 +54,6 @@ pitcrew = "pitcrew.cli:app"
 where = ["."]
 include = ["pitcrew*"]
 
-[tool.setuptools.package-data]
-pitcrew = ["templates/*.j2"]
-
 [tool.black]
 line-length = 100
 target-version = ["py311"]

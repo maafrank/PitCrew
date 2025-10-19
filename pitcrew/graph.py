@@ -4,11 +4,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Template
 from langgraph.graph import StateGraph, END
 
 from pitcrew.config import Config
-from pitcrew.constants import get_template_dir
 from pitcrew.llm import LLM
 from pitcrew.state import BotState
 from pitcrew.tools.executor import Executor
@@ -88,75 +86,164 @@ class PitCrewGraph:
         return state
 
     def handle_init(self) -> str:
-        """Handle /init command - create CLAUDE.md and AGENT.md.
+        """Handle /init command - create AI-generated AGENTS.md.
 
         Returns:
             Status message
         """
+        from rich.console import Console
+        console = Console()
+
+        # Check if AGENTS.md already exists
+        agents_path = self.project_root / "AGENTS.md"
+        if agents_path.exists():
+            return "- AGENTS.md already exists (skipped)"
+
+        console.print("📊 Building file index...")
         # Load index
         index = self.file_index.load_from_disk()
         if not index:
             index = self.file_index.build()
             self.file_index.save_to_disk(index)
 
-        # Prepare template variables
+        console.print(f"📁 Found {len(index.files)} files in project")
+
+        # Gather project information
         project_name = self.project_root.name
         languages = list(index.summary.get("languages", {}).keys())
+        total_files = index.summary.get("total_files", 0)
 
         # Detect test command
         test_commands = self.tester.detect()
         test_command = test_commands[0] if test_commands else None
 
-        # Build simple file tree
+        # Build file tree
         file_tree = self._build_file_tree(index)
 
-        template_vars = {
-            "project_name": project_name,
-            "languages": languages,
-            "test_command": test_command,
-            "file_tree": file_tree,
-            "has_python": "python" in languages,
-            "has_javascript": "javascript" in languages or "typescript" in languages,
-            "has_go": "go" in languages,
-        }
+        # Categorize files by type
+        skip_extensions = {'.pdf', '.doc', '.docx', '.log', '.dat', '.bin', '.exe', '.zip', '.tar', '.gz'}
 
-        # Render CLAUDE.md
-        claude_template_path = get_template_dir() / "CLAUDE.md.j2"
-        with open(claude_template_path) as f:
-            claude_template = Template(f.read())
-        claude_content = claude_template.render(**template_vars)
+        all_summaries = []
+        files_read = 0
+        files_skipped = 0
 
-        # Render AGENT.md
-        agent_template_path = get_template_dir() / "AGENT.md.j2"
-        with open(agent_template_path) as f:
-            agent_template = Template(f.read())
-        agent_content = agent_template.render(**template_vars)
+        console.print("📖 Summarizing files with AI...")
+        for f in index.files:
+            file_path = f["path"]
+            file_size = f.get("size", 0)
+            ext = Path(file_path).suffix.lower()
 
-        # Write files
-        claude_path = self.project_root / "CLAUDE.md"
-        agent_path = self.project_root / "AGENT.md"
+            # Skip binary/large files completely
+            if ext in skip_extensions or file_size > 1_000_000:
+                files_skipped += 1
+                continue
 
-        messages = []
-
-        if not claude_path.exists():
-            success, error = self.read_write.write("CLAUDE.md", claude_content)
-            if success:
-                messages.append("✓ Created CLAUDE.md")
+            console.print(f"  📄 Summarizing {file_path}...")
+            summary = self._summarize_file(file_path)
+            if summary and not summary.startswith("Error"):
+                all_summaries.append(f"=== {file_path} ===\n{summary}")
+                files_read += 1
             else:
-                messages.append(f"✗ Failed to create CLAUDE.md: {error}")
-        else:
-            messages.append("- CLAUDE.md already exists (skipped)")
+                console.print(f"    ⚠️  Failed to summarize: {summary}")
+                files_skipped += 1
 
-        if not agent_path.exists():
-            success, error = self.read_write.write("AGENT.md", agent_content)
+        console.print(f"✅ Summarized {files_read} files, skipped {files_skipped} files")
+        console.print(f"📝 Generating AGENTS.md with AI...")
+
+        files_context = "\n\n".join(all_summaries) if all_summaries else "No files found"
+
+        # Use LLM to generate AGENTS.md
+        prompt = f"""You are creating an AGENTS.md file for a project. This file will be used by AI coding assistants to understand the project structure, conventions, and how to work with the codebase.
+
+Project Information:
+- Name: {project_name}
+- Languages: {', '.join(languages)}
+- Total Files: {total_files}
+- Test Command: {test_command or 'Not detected'}
+
+File Structure:
+```
+{file_tree}
+```
+
+AI-Generated Summaries of All Files:
+{files_context}
+
+Based on the detailed file summaries above, create a comprehensive AGENTS.md file.
+
+IMPORTANT: Use the DETAILED information from the file summaries. Include:
+- Actual class names, function names, and signatures
+- Specific configuration values and constants
+- Real import statements and dependencies
+- Actual code patterns and conventions found in the files
+
+Create sections:
+
+1. **Project Overview**
+   - What this project does
+   - Main use cases and goals
+
+2. **Tech Stack**
+   - Languages and versions
+   - ALL major dependencies (from the imports)
+   - Key libraries and what they're used for
+
+3. **Architecture**
+   - Directory structure and purposes
+   - Key files and their roles
+   - Main classes and their responsibilities
+   - Data flow and component interactions
+
+4. **Key Classes & Functions**
+   - List ACTUAL class names with purposes
+   - List ACTUAL function signatures from the code
+   - Explain what each major component does
+
+5. **Configuration & Setup**
+   - Environment variables (with actual names)
+   - Configuration files and their keys
+   - Setup steps
+   - How to run the project
+
+6. **How to Test**
+   - Test commands
+   - Testing approach
+
+7. **Coding Conventions**
+   - Patterns observed in the code
+   - Style guidelines
+   - Error handling approaches
+   - Common practices
+
+8. **Important Implementation Details**
+   - Key algorithms or approaches
+   - Important business logic
+   - Gotchas or edge cases
+   - TODOs or known issues
+
+9. **AI Agent Workflow**
+   - How to work with this codebase
+   - Where to make common changes
+   - What to be careful about
+
+DO NOT SUMMARIZE OR SIMPLIFY. Include the specific details from the file summaries. An AI coding assistant needs concrete information, not high-level overviews.
+
+Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
+
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.complete(messages, temperature=0.3)
+            agents_content = response["content"]
+
+            # Write AGENTS.md
+            success, error = self.read_write.write("AGENTS.md", agents_content)
             if success:
-                messages.append("✓ Created AGENT.md")
+                return "✓ Created AI-generated AGENTS.md based on project analysis"
             else:
-                messages.append(f"✗ Failed to create AGENT.md: {error}")
-        else:
-            messages.append("- AGENT.md already exists (skipped)")
+                return f"✗ Failed to create AGENTS.md: {error}"
 
-        return "\n".join(messages)
+        except Exception as e:
+            return f"✗ Error generating AGENTS.md: {str(e)}"
 
     def handle_index(self) -> str:
         """Handle /index command - rebuild file index.
@@ -340,14 +427,14 @@ class PitCrewGraph:
             return f"✗ Failed to restore snapshot: {error}"
 
     def _load_context_docs(self) -> list[str]:
-        """Load context documents (CLAUDE.md, AGENT.md).
+        """Load context documents (AGENTS.md).
 
         Returns:
             List of document contents
         """
         docs = []
 
-        for filename in ["CLAUDE.md", "AGENT.md", "CLAUDE.local.md"]:
+        for filename in ["AGENTS.md", "AGENTS.local.md"]:
             path = self.project_root / filename
             if path.exists():
                 success, content, _ = self.read_write.read(filename)
@@ -355,6 +442,86 @@ class PitCrewGraph:
                     docs.append(content)
 
         return docs
+
+    def _summarize_file(self, path: str) -> str:
+        """Generate an AI summary of a file using a standalone LLM call.
+
+        Args:
+            path: File path to summarize
+
+        Returns:
+            Structured summary of the file
+        """
+        # Read the entire file
+        success, content, error = self.read_write.read(path)
+        if not success:
+            return f"Error reading {path}: {error}"
+
+        # Create a standalone LLM call with NO conversation context
+        summary_prompt = f"""Analyze this file in DETAIL and provide a comprehensive technical summary.
+
+File: {path}
+
+Content:
+```
+{content}
+```
+
+Structure your response EXACTLY as follows:
+
+## Overview
+[2-3 sentences describing what this file does, its purpose, and how it fits in the project]
+
+## Imports & Dependencies
+- List ALL import statements
+- Note what each major dependency is used for
+
+## Classes
+
+### ClassName1
+**Purpose:** [What this class does]
+
+**Attributes:**
+- `attribute_name: type` - description
+- `another_attr: type` - description
+
+**Methods:**
+- `__init__(self, param1: type, param2: type)` - initialization
+- `method_name(self, param: type) -> return_type` - what it does
+- `another_method(self, param1: type, param2: type) -> return_type` - what it does
+
+### ClassName2
+[Same structure as above for each class]
+
+## Functions
+
+- `function_name(param1: type, param2: type) -> return_type`
+  - Purpose: what it does
+  - Important details or side effects
+
+- `another_function(param: type) -> return_type`
+  - Purpose: what it does
+  - Important details or side effects
+
+## Constants & Configuration
+- `CONSTANT_NAME = value` - description
+- `CONFIG_KEY = value` - description
+- Environment variables: `ENV_VAR_NAME`
+
+## Important Implementation Details
+- Key algorithms or patterns used
+- Error handling approach
+- Notable business logic
+- TODOs or FIXMEs
+
+Be EXHAUSTIVE. List EVERY class, EVERY method with full signatures, EVERY function. This documentation will be used by AI coding assistants."""
+
+        try:
+            messages = [{"role": "user", "content": summary_prompt}]
+            response = self.llm.complete(messages, temperature=0.3)
+            return response["content"]
+        except Exception as e:
+            return f"Error summarizing {path}: {str(e)}"
 
     def _build_file_tree(self, index: Any) -> str:
         """Build a simple file tree representation.

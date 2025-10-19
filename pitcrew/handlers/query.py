@@ -160,7 +160,7 @@ class QueryHandler:
             return f"Error reading {path}: {error}"
 
         # Create a standalone LLM call with NO conversation context
-        summary_prompt = f"""Analyze this code file and provide a structured summary.
+        summary_prompt = f"""Analyze this code file and provide a detailed structured summary.
 
 File: {path}
 
@@ -169,20 +169,38 @@ Content:
 {content}
 ```
 
-Provide a summary in this format:
+Provide a comprehensive summary in this format:
 
-**Purpose:** [Brief description of what this file does]
+**Purpose:**
+[1-2 sentence description of what this file does and its role in the project]
 
-**Key Components:**
-- [List main classes with their purpose]
-- [List main functions with their signatures and purpose]
-- [List important constants or configuration]
+**Classes:**
+For each class, provide:
+- Class name and purpose
+- Key methods with signatures (name, parameters, return type)
+- Important attributes
 
-**Dependencies:** [Main imports or external dependencies]
+**Functions:**
+For each standalone function, provide:
+- Function signature (name, parameters, return type)
+- Brief description of what it does
+- Any notable side effects or dependencies
 
-**Notable Patterns:** [Any important design patterns, algorithms, or architectural decisions]
+**Dependencies:**
+- External libraries/imports
+- Internal module dependencies
 
-Be thorough but concise. Focus on what a developer needs to know to understand this file."""
+**Configuration/Constants:**
+- Important constants or configuration values
+- Environment variables used
+
+**Notable Patterns:**
+- Design patterns used
+- Architectural decisions
+- Error handling approach
+- Any important algorithms or logic
+
+Focus on providing actionable information that helps a developer understand and work with this file."""
 
         try:
             # Standalone LLM call - no tools, no conversation history
@@ -209,15 +227,35 @@ Be thorough but concise. Focus on what a developer needs to know to understand t
             response: LLM response with tool_calls
             tool_results: Map of tool_call_id to result string
         """
-        # Add assistant message with tool calls
-        messages.append({
-            "role": "assistant",
-            "content": response.get("content") or "",
-            "tool_calls": response["tool_calls"]
-        })
-
-        # Add tool results - format depends on provider
+        # Format depends on provider - add in native format to avoid conversion issues
         if self.llm.descriptor.provider == "anthropic":
+            # Anthropic format: assistant message with tool_use content blocks
+            content = []
+            if response.get("content"):
+                content.append({"type": "text", "text": response["content"]})
+
+            for tool_call in response["tool_calls"]:
+                # Parse arguments if needed
+                import json
+                arguments = tool_call["arguments"]
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError:
+                        arguments = {}
+
+                content.append({
+                    "type": "tool_use",
+                    "id": tool_call["id"],
+                    "name": tool_call["name"],
+                    "input": arguments
+                })
+
+            messages.append({
+                "role": "assistant",
+                "content": content
+            })
+
             # Anthropic format: all tool results in one user message
             tool_result_content = []
             for tool_call in response["tool_calls"]:
@@ -231,6 +269,13 @@ Be thorough but concise. Focus on what a developer needs to know to understand t
                 "content": tool_result_content
             })
         else:
+            # OpenAI format: assistant message with tool_calls
+            messages.append({
+                "role": "assistant",
+                "content": response.get("content") or "",
+                "tool_calls": response["tool_calls"]
+            })
+
             # OpenAI format: separate tool messages
             for tool_call in response["tool_calls"]:
                 messages.append({

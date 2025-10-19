@@ -98,8 +98,3 @@ SUPPORTED_MODELS = {
         "max_output_tokens": 8192,
     },
 }
-
-# Template directory
-def get_template_dir() -> Path:
-    """Get the path to the templates directory."""
-    return Path(__file__).parent / "templates"

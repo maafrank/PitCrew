@@ -223,12 +223,42 @@ class Planner:
             # Extract plan from tool call
             if "tool_calls" in response and response["tool_calls"]:
                 tool_call = response["tool_calls"][0]
-                if isinstance(tool_call["arguments"], str):
-                    plan_data = json.loads(tool_call["arguments"])
-                else:
-                    plan_data = tool_call["arguments"]
 
-                return Plan(**plan_data)
+                # Parse the arguments, handling JSON errors
+                try:
+                    if isinstance(tool_call["arguments"], str):
+                        args_str = tool_call["arguments"]
+                        # Log for debugging
+                        print(f"DEBUG: Raw arguments (first 500 chars):\n{args_str[:500]}")
+
+                        # Try parsing as-is first
+                        try:
+                            plan_data = json.loads(args_str)
+                        except json.JSONDecodeError as e:
+                            print(f"DEBUG: JSON parse error: {e}")
+                            print(f"DEBUG: Error at position {e.pos}")
+                            # Try to fix common issues
+                            # Remove trailing commas before closing brackets/braces
+                            args_str = re.sub(r',\s*([}\]])', r'\1', args_str)
+                            plan_data = json.loads(args_str)
+                    else:
+                        plan_data = tool_call["arguments"]
+
+                    # Ensure nested fields are parsed correctly
+                    # Sometimes edits/post_checks come as JSON strings
+                    if "edits" in plan_data and isinstance(plan_data["edits"], str):
+                        plan_data["edits"] = json.loads(plan_data["edits"])
+                    if "post_checks" in plan_data and isinstance(plan_data["post_checks"], str):
+                        plan_data["post_checks"] = json.loads(plan_data["post_checks"])
+                    if "files_to_read" in plan_data and isinstance(plan_data["files_to_read"], str):
+                        plan_data["files_to_read"] = json.loads(plan_data["files_to_read"])
+
+                    return Plan(**plan_data)
+
+                except json.JSONDecodeError as e:
+                    print(f"ERROR: Failed to parse tool call arguments: {e}")
+                    print(f"DEBUG: Full arguments:\n{tool_call.get('arguments', 'N/A')}")
+                    raise
 
             # Fallback: try to parse from content
             content = response.get("content", "")

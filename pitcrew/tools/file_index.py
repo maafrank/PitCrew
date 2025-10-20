@@ -168,24 +168,24 @@ class FileIndex:
             return False
 
     def save_to_disk(self, snapshot: FileIndexSnapshot) -> None:
-        """Save index snapshot to .bot/index.json.
+        """Save index snapshot to .pitcrew/index.json.
 
         Args:
             snapshot: Snapshot to save
         """
-        index_path = self.project_root / ".bot" / "index.json"
+        index_path = self.project_root / ".pitcrew" / "index.json"
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(index_path, "w") as f:
             json.dump(snapshot.to_dict(), f, indent=2)
 
     def load_from_disk(self) -> Optional[FileIndexSnapshot]:
-        """Load index snapshot from .bot/index.json.
+        """Load index snapshot from .pitcrew/index.json.
 
         Returns:
             FileIndexSnapshot if exists, None otherwise
         """
-        index_path = self.project_root / ".bot" / "index.json"
+        index_path = self.project_root / ".pitcrew" / "index.json"
 
         if not index_path.exists():
             return None

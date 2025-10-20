@@ -9,7 +9,7 @@ from pitcrew.constants import BUILTIN_IGNORES
 
 
 class IgnoreRules:
-    """Handles file ignore rules from .gitignore and .codebotignore."""
+    """Handles file ignore rules from .gitignore and .pitcrew/pitcrewignore."""
 
     def __init__(self, project_root: Path):
         """Initialize ignore rules.
@@ -33,14 +33,25 @@ class IgnoreRules:
             except IOError:
                 pass  # Ignore read errors
 
-        # Load .codebotignore (takes precedence)
-        codebotignore_path = self.project_root / ".codebotignore"
-        if codebotignore_path.exists():
+        # Load .pitcrew/pitcrewignore (new location, takes precedence)
+        pitcrewignore_path = self.project_root / ".pitcrew" / "pitcrewignore"
+        if pitcrewignore_path.exists():
             try:
-                with open(codebotignore_path) as f:
+                with open(pitcrewignore_path) as f:
                     patterns.extend(f.read().splitlines())
             except IOError:
                 pass  # Ignore read errors
+        else:
+            # Backwards compatibility: check for old .codebotignore in root
+            legacy_ignore_path = self.project_root / ".codebotignore"
+            if legacy_ignore_path.exists():
+                try:
+                    with open(legacy_ignore_path) as f:
+                        patterns.extend(f.read().splitlines())
+                    # Print deprecation warning
+                    print("⚠️  Warning: .codebotignore is deprecated. Please move it to .pitcrew/pitcrewignore")
+                except IOError:
+                    pass  # Ignore read errors
 
         # Filter out empty lines and comments
         patterns = [p.strip() for p in patterns if p.strip() and not p.strip().startswith("#")]

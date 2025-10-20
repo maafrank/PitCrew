@@ -20,7 +20,7 @@ class SessionLogger:
         self.run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Create logs directory
-        self.log_dir = project_root / ".bot" / "runs" / self.run_id
+        self.log_dir = project_root / ".pitcrew" / "runs" / self.run_id
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # Log files

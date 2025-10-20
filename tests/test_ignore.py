@@ -14,7 +14,7 @@ def test_builtin_ignores(test_project):
     assert rules.should_ignore(test_project / ".git" / "config")
     assert rules.should_ignore(test_project / "node_modules" / "package")
     assert rules.should_ignore(test_project / "__pycache__" / "module.pyc")
-    assert rules.should_ignore(test_project / ".bot" / "index.json")
+    assert rules.should_ignore(test_project / ".pitcrew" / "index.json")
 
 
 def test_gitignore_respected(test_project):
@@ -29,10 +29,12 @@ def test_gitignore_respected(test_project):
     assert not rules.should_ignore(test_project / "src" / "main.py")
 
 
-def test_codebotignore_respected(test_project):
-    """Test that .codebotignore is respected."""
-    # Create .codebotignore
-    (test_project / ".codebotignore").write_text("*.tmp\ndata/\n")
+def test_pitcrewignore_respected(test_project):
+    """Test that .pitcrew/pitcrewignore is respected."""
+    # Create .pitcrew/pitcrewignore
+    pitcrew_dir = test_project / ".pitcrew"
+    pitcrew_dir.mkdir(exist_ok=True)
+    (pitcrew_dir / "pitcrewignore").write_text("*.tmp\ndata/\n")
 
     rules = IgnoreRules(test_project)
 

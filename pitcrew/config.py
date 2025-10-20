@@ -72,7 +72,7 @@ class Config:
 
         # Load project-specific config if available
         if project_root:
-            bot_config_path = project_root / ".bot" / "config.json"
+            bot_config_path = project_root / ".pitcrew" / "config.json"
             if bot_config_path.exists():
                 try:
                     with open(bot_config_path) as f:

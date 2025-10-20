@@ -551,9 +551,17 @@ Format:
 
             if thinking:
                 console.print(f"[dim]💭 Error Analysis:[/dim]")
-                # Show first 300 chars of thinking
-                thinking_preview = thinking[:300] + "..." if len(thinking) > 300 else thinking
-                console.print(f"[dim]{thinking_preview}[/dim]")
+                # Show more thinking - up to 500 chars with line breaks
+                thinking_lines = thinking.split('\n')
+                shown_chars = 0
+                shown_lines = []
+                for line in thinking_lines:
+                    if shown_chars + len(line) > 500:
+                        shown_lines.append("...")
+                        break
+                    shown_lines.append(line)
+                    shown_chars += len(line)
+                console.print(f"[dim]{chr(10).join(shown_lines)}[/dim]")
 
             # Extract file names from error messages
             import re
@@ -629,6 +637,8 @@ Format:
         success, content, _ = self.read_write.read(file_path)
         if success:
             existing_content = content
+            lines = len(content.split('\n'))
+            console.print(f"[dim]   📖 Read existing file ({lines} lines)[/dim]")
 
         # Load AGENTS.md for context
         context_docs = self._load_context_docs()
@@ -668,9 +678,11 @@ Format your response as:
 The code section should contain ONLY raw code with no markdown fences or explanations."""
 
         try:
+            console.print(f"[dim]   🤖 Asking AI to generate code...[/dim]")
             messages = [{"role": "user", "content": prompt}]
             response = self.llm.complete(messages, temperature=0.3)
             full_response = response["content"]
+            console.print(f"[dim]   ✓ Received response from AI[/dim]")
 
             # Extract thinking and code sections
             import re
@@ -696,15 +708,25 @@ The code section should contain ONLY raw code with no markdown fences or explana
 
             # Display thinking to user if present
             if thinking:
-                console.print(f"[dim]💭 Reasoning:[/dim]")
-                # Show first 200 chars of thinking
-                thinking_preview = thinking[:200] + "..." if len(thinking) > 200 else thinking
-                console.print(f"[dim]{thinking_preview}[/dim]")
+                console.print(f"[dim]💭 AI Reasoning:[/dim]")
+                # Show more thinking - up to 500 chars with line breaks
+                thinking_lines = thinking.split('\n')
+                shown_chars = 0
+                shown_lines = []
+                for line in thinking_lines:
+                    if shown_chars + len(line) > 500:
+                        shown_lines.append("...")
+                        break
+                    shown_lines.append(line)
+                    shown_chars += len(line)
+                console.print(f"[dim]{chr(10).join(shown_lines)}[/dim]")
 
             # Write the file
+            console.print(f"[dim]   💾 Writing code to {file_path}...[/dim]")
             success, error = self.read_write.write(file_path, generated_code)
             if success:
-                return f"✓ Implemented {file_path}"
+                lines_written = len(generated_code.split('\n'))
+                return f"✓ Implemented {file_path} ({lines_written} lines)"
             else:
                 return f"✗ Failed to write {file_path}: {error}"
 

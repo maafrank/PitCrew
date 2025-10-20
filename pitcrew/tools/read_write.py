@@ -159,7 +159,7 @@ class ReadWrite:
             Tuple of (success, snapshot_id, error)
         """
         snapshot_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        snapshot_dir = self.project_root / ".bot" / "snapshots" / snapshot_id
+        snapshot_dir = self.project_root / ".pitcrew" / "snapshots" / snapshot_id
 
         try:
             snapshot_dir.mkdir(parents=True, exist_ok=True)
@@ -202,7 +202,7 @@ class ReadWrite:
         Returns:
             Tuple of (success, error)
         """
-        snapshot_dir = self.project_root / ".bot" / "snapshots" / snapshot_id
+        snapshot_dir = self.project_root / ".pitcrew" / "snapshots" / snapshot_id
 
         if not snapshot_dir.exists():
             return False, f"Snapshot not found: {snapshot_id}"
@@ -236,7 +236,7 @@ class ReadWrite:
         Returns:
             List of snapshot IDs (sorted, newest first)
         """
-        snapshots_dir = self.project_root / ".bot" / "snapshots"
+        snapshots_dir = self.project_root / ".pitcrew" / "snapshots"
 
         if not snapshots_dir.exists():
             return []

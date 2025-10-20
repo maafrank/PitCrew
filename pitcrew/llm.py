@@ -96,15 +96,6 @@ class LLM:
 
         # Filter out system messages and convert to Anthropic format
         import copy
-        import json as json_debug
-
-        print(f"\n=== ANTHROPIC CONVERSION START ===")
-        print(f"Input messages count: {len(messages)}")
-
-        # Check if INPUT messages have tool_calls
-        for i, m in enumerate(messages):
-            if isinstance(m, dict) and "tool_calls" in m:
-                print(f"⚠️  INPUT Message {i} has tool_calls! Keys: {list(m.keys())}")
 
         chat_messages = []
         for m in messages:
@@ -145,21 +136,12 @@ class LLM:
                 # Shouldn't happen but keep it
                 chat_messages.append(copy.deepcopy(m))
 
-        # Final validation: ensure no tool_calls in any message
-        print(f"\n=== FINAL VALIDATION ===")
-        print(f"Output chat_messages count: {len(chat_messages)}")
-
+        # Final validation: ensure no tool_calls in any message (silent cleanup)
         for i, msg in enumerate(chat_messages):
-            if isinstance(msg, dict):
-                if "tool_calls" in msg:
-                    print(f"❌ ERROR: Found tool_calls in chat_messages[{i}]")
-                    print(f"   Keys: {list(msg.keys())}")
-                    print(f"   Full message: {json_debug.dumps(msg, indent=2)}")
-                    # Force remove it
-                    msg = {k: v for k, v in msg.items() if k != "tool_calls"}
-                    chat_messages[i] = msg
-                else:
-                    print(f"✓ Message {i}: role={msg.get('role')}, has tool_calls=False")
+            if isinstance(msg, dict) and "tool_calls" in msg:
+                # Remove tool_calls key
+                msg = {k: v for k, v in msg.items() if k != "tool_calls"}
+                chat_messages[i] = msg
 
         # Create a completely new list to avoid any reference issues
         # Deep copy but explicitly exclude 'tool_calls' key
@@ -171,22 +153,6 @@ class LLM:
                 clean_messages.append(clean_msg)
             else:
                 clean_messages.append(copy.deepcopy(msg))
-
-        print(f"\n=== CREATING KWARGS ===")
-        print(f"Clean messages count: {len(clean_messages)}")
-        for i, msg in enumerate(clean_messages):
-            if isinstance(msg, dict):
-                print(f"  Message {i} keys: {list(msg.keys())}")
-                # Check if content is a list (tool use)
-                if isinstance(msg.get("content"), list):
-                    print(f"    Content is list with {len(msg['content'])} items")
-                    for j, item in enumerate(msg["content"]):
-                        if isinstance(item, dict):
-                            print(f"      Item {j} type: {item.get('type')}, keys: {list(item.keys())}")
-                elif isinstance(msg.get("content"), str):
-                    print(f"    Content is string ({len(msg['content'])} chars)")
-            else:
-                print(f"  Message {i}: not a dict")
 
         kwargs: dict[str, Any] = {
             "model": self.descriptor.name,
@@ -202,22 +168,7 @@ class LLM:
             # Convert OpenAI tool format to Anthropic format
             kwargs["tools"] = self._convert_tools_to_anthropic(tools)
 
-        print(f"\n=== CALLING ANTHROPIC API ===")
-        print(f"Model: {kwargs['model']}")
-        print(f"Messages: {len(kwargs['messages'])}")
-        print(f"Has tools: {tools is not None}")
-
-        try:
-            response = self.client.messages.create(**kwargs)
-        except Exception as e:
-            print(f"\n!!! ANTHROPIC API ERROR !!!")
-            print(f"Error: {e}")
-            print(f"\nMessages being sent ({len(chat_messages)} total):")
-            import json as json_mod
-            for i, msg in enumerate(chat_messages):
-                print(f"\n--- Message {i} ---")
-                print(json_mod.dumps(msg, indent=2))
-            raise
+        response = self.client.messages.create(**kwargs)
 
         result: dict[str, Any] = {
             "role": "assistant",

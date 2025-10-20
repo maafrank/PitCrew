@@ -277,7 +277,7 @@ Run: `pip install -e .` in the PitCrew directory.
 Make sure `/allow-edits on` is set, or answer "y" when prompted.
 
 ### "Snapshot not found"
-Snapshots are in `.bot/snapshots/`. You can only undo the most recent apply.
+Snapshots are in `.pitcrew/snapshots/`. You can only undo the most recent apply.
 
 ### Tests failing after `/apply`
 ```bash

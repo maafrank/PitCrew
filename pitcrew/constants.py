@@ -17,7 +17,7 @@ DEFAULT_MAX_WRITE_MB = 2
 # Built-in ignore patterns
 BUILTIN_IGNORES = [
     ".git/",
-    ".bot/",
+    ".pitcrew/",
     "node_modules/",
     "__pycache__/",
     "*.pyc",

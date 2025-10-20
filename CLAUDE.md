@@ -42,7 +42,7 @@ PitCrew is a terminal-based code editing bot built on LangGraph. It provides an 
 - `allow_edits`: bool (session-level approval)
 - `index`: FileIndexSnapshot (paths, sizes, hashes, language)
 - `context_files`: list[Path] (CLAUDE.md, AGENT.md)
-- `run_log_id`: str (session log directory under .bot/)
+- `run_log_id`: str (session log directory under .pitcrew/)
 
 ### Directory Structure
 
@@ -91,15 +91,16 @@ pitcrew/
 - Supports nested CLAUDE.md in subdirectories for scoped instructions
 
 ### Ignore Rules
-- `.codebotignore` (first-class)
+- `.pitcrew/pitcrewignore` (first-class, project-specific)
 - `.gitignore` (respected)
 - Built-in binary and size guards
 
-### Internal Data (.bot/)
+### Internal Data (.pitcrew/)
 - `runs/<timestamp>/`: transcripts, plans, patches, exec logs
 - `snapshots/`: pre-write backups for `/undo`
 - `index.json`: file index summary
 - `config.json`: resolved configuration
+- `pitcrewignore`: custom ignore patterns
 
 ## Commands
 
@@ -139,7 +140,7 @@ Users can describe tasks conversationally. The supervisor will read files, propo
 - `CODEBOT_MAX_READ_MB` (default: 8)
 - `CODEBOT_MAX_WRITE_MB` (default: 2)
 
-### Custom Commands (.bot/config.json)
+### Custom Commands (.pitcrew/config.json)
 Override default test/build/lint commands:
 ```json
 {
@@ -171,7 +172,7 @@ Override default test/build/lint commands:
 2. Supervisor reads relevant files, generates structured `Plan`
 3. REPL displays concise diff summary, asks to `/apply`
 4. On `/apply`:
-   - Snapshot current state → `.bot/snapshots/`
+   - Snapshot current state → `.pitcrew/snapshots/`
    - Apply edits atomically
    - Optionally run `post_checks` (tests, linters)
 5. If tests fail or user wants to revert: `/undo`
@@ -181,11 +182,11 @@ Auto-detection logic:
 - If `pytest.ini` or `tests/` exists → `pytest -q`
 - If `package.json` with `"test"` script → `npm test --silent`
 - If `go.mod` exists → `go test ./...`
-- Override via `.bot/config.json` commands
+- Override via `.pitcrew/config.json` commands
 
 ## Logging & Undo
-- **Logs:** `.bot/runs/<timestamp>/transcript.ndjson`, `plan.json`, `diffs/`, `exec/`
-- **Undo:** Restores from `.bot/snapshots/<id>/` (last batch of edits)
+- **Logs:** `.pitcrew/runs/<timestamp>/transcript.ndjson`, `plan.json`, `diffs/`, `exec/`
+- **Undo:** Restores from `.pitcrew/snapshots/<id>/` (last batch of edits)
 
 ## Non-Goals (v1)
 - No Git integration (relies on snapshots/undo)

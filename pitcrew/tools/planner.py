@@ -329,42 +329,25 @@ class Planner:
         Returns:
             System prompt string
         """
+        # NOTE: Most guidelines are now in the main system prompt (AGENTS.md context, COT, coding standards)
+        # Only add planner-specific instructions here
         prompt_parts = [
-            "You are an expert code planning assistant. Your task is to generate structured "
-            "plans for code modifications.",
+            "Generate a structured plan using the create_plan function.",
             "",
-            "Action Types:",
-            "- 'implement' - AI will generate complete working code for this file (PREFERRED)",
-            "  * Provide 'description' field explaining what the file should do",
-            "  * NO 'content' field needed - AI generates it automatically",
-            "  * Example: {\"action\": \"implement\", \"description\": \"Configuration class for summarization with max_length and temperature parameters\"}",
-            "",
-            "- 'create' - Create a simple file with provided content",
-            "  * Use ONLY for very simple files (configs, requirements.txt, etc.)",
-            "  * Keep content SHORT and simple - NO complex code",
-            "",
+            "Action Types Available:",
+            "- 'implement' - AI generates complete code (PREFERRED for all code files)",
+            "- 'create' - Simple files with provided content (configs, requirements.txt only)",
             "- 'replace' - Replace entire existing file",
             "- 'delete' - Delete a file",
-            "- AVOID 'patch' - it's error-prone",
-            "",
-            "Guidelines:",
-            "- PREFER 'implement' action for ALL code files",
-            "- Use 'create' only for simple config/data files",
-            "- Always include test files with 'implement' action",
-            "- Be specific in 'description' - mention classes, functions, parameters needed",
         ]
 
         if hints["suggested_actions"]:
             prompt_parts.append("")
-            prompt_parts.append("Specific guidance for this task:")
+            prompt_parts.append("Specific guidance:")
             for action in hints["suggested_actions"]:
                 prompt_parts.append(f"- {action}")
 
-        if context_docs:
-            prompt_parts.append("")
-            prompt_parts.append("Project context:")
-            for doc in context_docs:
-                prompt_parts.append(doc[:2000])  # Limit length
+        # NOTE: context_docs (AGENTS.md) is now in the main system prompt, not here
 
         return "\n".join(prompt_parts)
 
@@ -407,16 +390,7 @@ class Planner:
 Project files:
 {file_tree}{conversation_context}
 
-IMPORTANT: Before creating the plan, think through the requirements step-by-step:
-1. What is the user asking for? What's the main objective?
-2. What files need to be created or modified?
-3. For each file, what should it contain? (classes, functions, logic)
-4. What dependencies or imports are needed?
-5. What tests should be included?
-6. What commands should run after the changes (tests, linting)?
-7. Are there any edge cases or considerations?
-
-After thinking through these questions, create a structured plan using the create_plan function."""
+Create a structured plan using the create_plan function. Follow the chain-of-thought process from the system instructions."""
 
     def _validate_plan(self, plan: Plan, index: FileIndexSnapshot) -> Plan:
         """Validate and clean up a plan.

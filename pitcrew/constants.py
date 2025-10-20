@@ -16,21 +16,59 @@ DEFAULT_MAX_WRITE_MB = 2
 
 # Built-in ignore patterns
 BUILTIN_IGNORES = [
+    # Version control and project metadata
     ".git/",
+    ".gitignore",
+    ".gitattributes",
+    ".github/",
+
+    # PitCrew internal
     ".pitcrew/",
-    "node_modules/",
+
+    # Python
     "__pycache__/",
     "*.pyc",
     "*.pyo",
+    "*.pyd",
+    ".Python",
     "*.egg-info/",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+    ".tox/",
+    ".coverage",
+    "htmlcov/",
+
+    # Virtual environments
     "venv/",
     "env/",
     ".venv/",
+    "ENV/",
+
+    # Build artifacts
     "dist/",
     "build/",
+    "*.so",
+    "*.dylib",
+    "*.dll",
+
+    # JavaScript/Node
+    "node_modules/",
+    "package-lock.json",
+    "yarn.lock",
+
+    # IDE and editor files
     ".DS_Store",
     "*.swp",
     "*.swo",
+    ".vscode/",
+    ".idea/",
+    "*.sublime-*",
+
+    # Logs and databases
+    "*.log",
+    "*.sqlite",
+    "*.db",
 ]
 
 # Dangerous command patterns (for executor safety checks)

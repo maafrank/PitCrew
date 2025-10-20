@@ -89,10 +89,23 @@ class LLM:
         temperature: float,
         max_tokens: int,
     ) -> dict[str, Any]:
-        """Complete using Anthropic API."""
-        # Anthropic requires system messages to be separate
-        system_messages = [m["content"] for m in messages if m["role"] == "system"]
-        system = "\n\n".join(system_messages) if system_messages else None
+        """Complete using Anthropic API with prompt caching support."""
+        # Extract system messages - can be string or structured blocks with cache_control
+        system_messages = [m for m in messages if m["role"] == "system"]
+        system = None
+
+        if system_messages:
+            # Check if we have structured system messages with cache_control
+            first_content = system_messages[0].get("content")
+            if isinstance(first_content, list):
+                # Structured format with cache_control - use as-is
+                system = first_content
+            elif isinstance(first_content, str):
+                # Legacy string format - join multiple system messages
+                system = "\n\n".join([m["content"] for m in system_messages])
+            else:
+                # Already in correct format
+                system = first_content
 
         # Filter out system messages and convert to Anthropic format
         import copy

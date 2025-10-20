@@ -325,16 +325,24 @@ class REPL:
             console.print("[dim]You can try rephrasing or use /help for slash commands.[/dim]")
 
     def _initialize_conversation(self) -> None:
-        """Initialize the conversation with system prompt."""
-        system_prompt = """You are PitCrew, an AI coding assistant. You help developers by:
-- Answering questions about their codebase
-- Planning and implementing code changes
-- Running tests and commands
-- Explaining code and architecture
+        """Initialize the conversation with rich system prompt including AGENTS.md."""
+        from pitcrew.system_prompt import SystemPromptBuilder
 
-Be concise, helpful, and action-oriented. Always confirm before making changes."""
+        # Load AGENTS.md if it exists
+        agents_md_path = self.project_root / "AGENTS.md"
+        agents_md_content = None
+        if agents_md_path.exists():
+            try:
+                agents_md_content = agents_md_path.read_text()
+            except Exception:
+                pass  # Ignore read errors
 
-        self.conversation.set_system_prompt(system_prompt)
+        # Build rich system prompt with caching
+        prompt_builder = SystemPromptBuilder(self.project_root, agents_md_content)
+        system_messages = prompt_builder.build_system_messages()
+
+        # Set the structured system prompt (will be cached by Anthropic)
+        self.conversation.set_system_prompt(system_messages)
 
     def _extract_file_path(self, text: str, target: Optional[str]) -> Optional[str]:
         """Extract file path from natural language input.

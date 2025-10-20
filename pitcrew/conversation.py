@@ -39,11 +39,11 @@ class ConversationContext:
             # Keep system + recent messages
             self.messages = system_msgs + other_msgs[-(self.max_history * 2) :]
 
-    def set_system_prompt(self, prompt: str) -> None:
+    def set_system_prompt(self, prompt: str | list) -> None:
         """Set or update the system prompt.
 
         Args:
-            prompt: System prompt content
+            prompt: System prompt content (string or structured list with cache_control)
         """
         self.system_prompt = prompt
 

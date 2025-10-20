@@ -123,14 +123,29 @@ class PitCrewGraph:
         # Build file tree
         file_tree = self._build_file_tree(index)
 
-        # Categorize files by type (only skip truly binary/non-code files)
+        # Skip files that aren't useful for documentation
         skip_extensions = {
-            '.pdf', '.doc', '.docx', '.log', '.dat', '.bin', '.exe', '.zip', '.tar', '.gz',
+            # Binary files
+            '.pdf', '.doc', '.docx', '.dat', '.bin', '.exe', '.zip', '.tar', '.gz',
             '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp',  # Images
             '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',  # Videos
             '.mp3', '.wav', '.ogg', '.flac',  # Audio
             '.ttf', '.otf', '.woff', '.woff2',  # Fonts
+            # Lock and config files that don't need summaries
+            '.lock', '.pyc', '.pyo', '.pyd', '.so', '.dylib', '.dll',
         }
+
+        # Skip specific files that aren't useful for documentation
+        skip_filenames = {
+            '.DS_Store', '.gitignore', '.gitattributes', '.dockerignore',
+            'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock',
+            'requirements.txt', 'requirements-dev.txt',  # Usually just dependency lists
+            '.env', '.env.example', '.env.local', '.env.production',
+            'LICENSE', 'LICENSE.md', 'LICENSE.txt',  # License text not needed
+        }
+
+        # Skip files in certain directories
+        skip_dirs = {'.pytest_cache', '.mypy_cache', '.ruff_cache', '__pycache__', 'node_modules'}
 
         all_summaries = []
         files_read = 0
@@ -140,10 +155,22 @@ class PitCrewGraph:
         for f in index.files:
             file_path = f["path"]
             file_size = f.get("size", 0)
-            ext = Path(file_path).suffix.lower()
+            path_obj = Path(file_path)
+            ext = path_obj.suffix.lower()
+            filename = path_obj.name
 
-            # Skip binary/large files completely
-            if ext in skip_extensions or file_size > 1_000_000:
+            # Skip if file is in a skip directory
+            if any(skip_dir in path_obj.parts for skip_dir in skip_dirs):
+                files_skipped += 1
+                continue
+
+            # Skip by extension or filename
+            if ext in skip_extensions or filename in skip_filenames:
+                files_skipped += 1
+                continue
+
+            # Skip files larger than 1MB
+            if file_size > 1_000_000:
                 files_skipped += 1
                 continue
 
@@ -490,8 +517,9 @@ IMPORTANT: Use DETAILED information from the file summaries. Include actual clas
         # Combine stdout and stderr
         error_output = f"{result.stdout}\n{result.stderr}" if result.stdout or result.stderr else "No output"
 
-        # Build prompt for fix generation with chain-of-thought
-        prompt = f"""A test command failed. Analyze the errors and determine how to fix them.
+        # Build prompt for fix generation
+        # NOTE: Debugging guidelines and COT are now in the system prompt
+        prompt = f"""A test command failed. Analyze and fix the errors.
 
 Test Command: {command}
 Exit Code: {result.exit_code}
@@ -504,33 +532,12 @@ Original Plan Intent: {original_plan.intent}
 Files that were created/modified:
 {chr(10).join([f"- {edit.path}" for edit in original_plan.edits])}
 
-IMPORTANT: Think through the problem step-by-step in a <thinking> section:
-1. What type of error is this? (ImportError, SyntaxError, AttributeError, logic error, etc.)
-2. What is the root cause? Look at the error traceback and messages carefully.
-3. Which specific files or lines are mentioned in the error?
-4. Is this a missing dependency, wrong import path, missing file, or code logic issue?
-5. What specific changes are needed to fix this?
-6. Are there any related issues that might cause the same error again?
-
-Then provide your analysis in an <analysis> section.
-
-Format:
-<thinking>
-[Step-by-step reasoning about the error and how to fix it]
-</thinking>
-
-<analysis>
-[Brief summary of what needs to be fixed and why]
-</analysis>"""
+Follow the chain-of-thought process for debugging from the system instructions. Provide your analysis."""
 
         try:
-            # Load context
-            context_docs = self._load_context_docs()
-
-            # Create a fix plan using the planner
-            # We'll use a simplified approach: ask LLM directly for fixes
+            # Use main conversation system prompt (has AGENTS.md context, debugging guidelines)
+            # Don't add redundant system message
             messages = [
-                {"role": "system", "content": "You are debugging test failures. Provide specific, targeted fixes."},
                 {"role": "user", "content": prompt}
             ]
 
@@ -640,42 +647,17 @@ Format:
             lines = len(content.split('\n'))
             console.print(f"[dim]   📖 Read existing file ({lines} lines)[/dim]")
 
-        # Load AGENTS.md for context
-        context_docs = self._load_context_docs()
-        context = "\n\n".join(context_docs) if context_docs else ""
-
-        # Build prompt for code generation with chain-of-thought
+        # Build prompt for code generation
+        # NOTE: Project context (AGENTS.md) and COT instructions are now in the system prompt!
         prompt = f"""Generate complete, working code for this file.
 
 File: {file_path}
 Purpose: {description}
 
-Project Context:
-{context[:1000]}
-
 Current Content (if exists):
 {existing_content[:500] if existing_content else "File does not exist yet"}
 
-IMPORTANT: First, think through your implementation step-by-step in a <thinking> section:
-1. What is the main purpose and responsibility of this file?
-2. What classes/functions/components are needed?
-3. What imports and dependencies are required?
-4. How does this integrate with the rest of the project (based on context)?
-5. What edge cases or error handling should be included?
-6. What are the specific requirements from the description?
-
-Then provide the complete code in a <code> section.
-
-Format your response as:
-<thinking>
-[Your detailed step-by-step reasoning here]
-</thinking>
-
-<code>
-[The actual code content - complete and working, not TODO comments]
-</code>
-
-The code section should contain ONLY raw code with no markdown fences or explanations."""
+Follow the chain-of-thought process from the system instructions."""
 
         try:
             console.print(f"[dim]   🤖 Asking AI to generate code...[/dim]")

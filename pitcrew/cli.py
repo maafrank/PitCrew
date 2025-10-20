@@ -70,7 +70,14 @@ class REPL:
             index = self.graph.file_index.build()
             self.graph.file_index.save_to_disk(index)
         summary = self.graph.file_index.summarize(index)
-        console.print(f"[dim]{summary}[/dim]\n")
+        console.print(f"[dim]{summary}[/dim]")
+
+        # Show AGENTS.md status
+        agents_md_path = self.project_root / "AGENTS.md"
+        if agents_md_path.exists():
+            console.print("[dim]✓ AGENTS.md loaded into system prompt (cached by Claude)[/dim]\n")
+        else:
+            console.print("[dim]ℹ️  No AGENTS.md found - run /init to create it[/dim]\n")
 
         # Main REPL loop
         while self.running:
@@ -120,6 +127,10 @@ class REPL:
             elif cmd == "/init":
                 result = self.graph.handle_init()
                 console.print(result)
+                # Reload system prompt with the newly created/updated AGENTS.md
+                if "✓" in result:  # Success indicator
+                    console.print()
+                    self._reload_system_prompt(show_message=True)
             elif cmd == "/index":
                 result = self.graph.handle_index()
                 console.print(result)
@@ -225,6 +236,9 @@ class REPL:
                     console.print("\nAvailable models:")
                     for model in LLM.list_models():
                         console.print(f"  - {model}")
+            elif cmd == "/reload":
+                console.print("[cyan]Reloading system prompt with current AGENTS.md...[/cyan]")
+                self._reload_system_prompt(show_message=True)
             elif cmd == "/config":
                 config_dict = self.config.to_dict()
                 console.print(Panel(
@@ -326,16 +340,35 @@ class REPL:
 
     def _initialize_conversation(self) -> None:
         """Initialize the conversation with rich system prompt including AGENTS.md."""
+        self._reload_system_prompt(show_message=False)
+
+    def _reload_system_prompt(self, show_message: bool = True) -> None:
+        """Reload system prompt with current AGENTS.md content.
+
+        Args:
+            show_message: Whether to show a message to the user
+        """
+        from rich.console import Console
         from pitcrew.system_prompt import SystemPromptBuilder
+
+        console = Console()
 
         # Load AGENTS.md if it exists
         agents_md_path = self.project_root / "AGENTS.md"
         agents_md_content = None
-        if agents_md_path.exists():
+        agents_md_exists = agents_md_path.exists()
+
+        if agents_md_exists:
             try:
                 agents_md_content = agents_md_path.read_text()
-            except Exception:
-                pass  # Ignore read errors
+                if show_message:
+                    console.print("[green]✓ Loaded AGENTS.md into system prompt (cached by Claude)[/green]")
+            except Exception as e:
+                if show_message:
+                    console.print(f"[yellow]⚠️  Could not read AGENTS.md: {e}[/yellow]")
+        else:
+            if show_message:
+                console.print("[dim]ℹ️  No AGENTS.md found - using generic system prompt[/dim]")
 
         # Build rich system prompt with caching
         prompt_builder = SystemPromptBuilder(self.project_root, agents_md_content)
@@ -343,6 +376,10 @@ class REPL:
 
         # Set the structured system prompt (will be cached by Anthropic)
         self.conversation.set_system_prompt(system_messages)
+
+        if show_message and agents_md_exists:
+            lines = len(agents_md_content.split('\n'))
+            console.print(f"[dim]   📚 {lines} lines of project context loaded[/dim]")
 
     def _extract_file_path(self, text: str, target: Optional[str]) -> Optional[str]:
         """Extract file path from natural language input.
@@ -378,7 +415,8 @@ class REPL:
         help_text = """
 **Available Commands:**
 
-- `/init` - Create AGENTS.md file
+- `/init` - Create or update AGENTS.md file
+- `/reload` - Reload system prompt with current AGENTS.md
 - `/plan <goal>` - Generate a structured edit plan
 - `/apply` - Apply the last generated plan
 - `/implement <file> <description>` - Generate code for a specific file

@@ -82,7 +82,7 @@ class PitCrewGraph:
         return state
 
     def handle_init(self) -> str:
-        """Handle /init command - create or update AI-generated AGENTS.md.
+        """Handle /init command - create or update AGENTS.md using a template.
 
         Returns:
             Status message
@@ -92,15 +92,11 @@ class PitCrewGraph:
 
         # Check if AGENTS.md already exists
         agents_path = self.project_root / "AGENTS.md"
-        existing_agents_content = None
-        is_update = False
+        is_update = agents_path.exists()
 
-        if agents_path.exists():
-            is_update = True
-            console.print("📄 Found existing AGENTS.md, will update it with latest changes...")
-            success, content, _ = self.read_write.read("AGENTS.md")
-            if success:
-                existing_agents_content = content
+        if is_update:
+            console.print("📄 AGENTS.md already exists. Skipping (edit it manually or delete it first).")
+            return "ℹ️  AGENTS.md already exists. Edit it manually to update project documentation."
 
         console.print("📊 Building file index...")
         # Load index
@@ -123,101 +119,94 @@ class PitCrewGraph:
         # Build file tree
         file_tree = self._build_file_tree(index)
 
-        # Skip files that aren't useful for documentation
-        skip_extensions = {
-            # Binary files
-            '.pdf', '.doc', '.docx', '.dat', '.bin', '.exe', '.zip', '.tar', '.gz',
-            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp',  # Images
-            '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',  # Videos
-            '.mp3', '.wav', '.ogg', '.flac',  # Audio
-            '.ttf', '.otf', '.woff', '.woff2',  # Fonts
-            # Lock and config files that don't need summaries
-            '.lock', '.pyc', '.pyo', '.pyd', '.so', '.dylib', '.dll',
-        }
+        # Read file contents (first 100 lines) - NO AI summarization
+        console.print("📖 Reading project files...")
 
-        # Skip specific files that aren't useful for documentation
-        skip_filenames = {
-            '.DS_Store', '.gitignore', '.gitattributes', '.dockerignore',
-            'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock',
-            'requirements.txt', 'requirements-dev.txt',  # Usually just dependency lists
-            '.env', '.env.example', '.env.local', '.env.production',
-            'LICENSE', 'LICENSE.md', 'LICENSE.txt',  # License text not needed
-        }
+        skip_extensions = {'.pdf', '.doc', '.docx', '.dat', '.bin', '.exe', '.zip', '.tar', '.gz',
+                          '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp',
+                          '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',
+                          '.mp3', '.wav', '.ogg', '.flac',
+                          '.ttf', '.otf', '.woff', '.woff2',
+                          '.lock', '.pyc', '.pyo', '.pyd', '.so', '.dylib', '.dll'}
 
-        # Skip files in certain directories
-        skip_dirs = {'.pytest_cache', '.mypy_cache', '.ruff_cache', '__pycache__', 'node_modules'}
+        skip_filenames = {'.DS_Store', '.gitignore', '.gitattributes', '.dockerignore',
+                         'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock',
+                         '.env', '.env.example', '.env.local', '.env.production',
+                         'LICENSE', 'LICENSE.md', 'LICENSE.txt'}
 
-        all_summaries = []
+        skip_dirs = {'.pytest_cache', '.mypy_cache', '.ruff_cache', '__pycache__',
+                    'node_modules', '.pitcrew', '.bot', '.git'}
+
+        file_contents = []
         files_read = 0
-        files_skipped = 0
 
-        console.print("📖 Summarizing files with AI...")
         for f in index.files:
             file_path = f["path"]
             file_size = f.get("size", 0)
             path_obj = Path(file_path)
-            ext = path_obj.suffix.lower()
-            filename = path_obj.name
 
-            # Skip if file is in a skip directory
+            # Skip files by directory, extension, filename, or size
             if any(skip_dir in path_obj.parts for skip_dir in skip_dirs):
-                files_skipped += 1
+                continue
+            if path_obj.suffix.lower() in skip_extensions:
+                continue
+            if path_obj.name in skip_filenames:
+                continue
+            if file_size > 100_000:  # Skip files > 100KB
                 continue
 
-            # Skip by extension or filename
-            if ext in skip_extensions or filename in skip_filenames:
-                files_skipped += 1
-                continue
+            # Determine how many lines to read based on file importance
+            try:
+                full_path = self.project_root / file_path
+                filename = path_obj.name.lower()
 
-            # Skip files larger than 1MB
-            if file_size > 1_000_000:
-                files_skipped += 1
-                continue
+                # Important files: read the whole file (or more lines)
+                is_important = (
+                    # Entry points
+                    filename in {'main.py', 'cli.py', 'app.py', 'index.js', 'index.ts', 'server.js', 'main.go'} or
+                    # Init files
+                    filename == '__init__.py' or
+                    # Config files (usually small)
+                    path_obj.suffix in {'.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.json'} or
+                    filename in {'setup.py', 'setup.cfg', 'pyproject.toml', 'package.json', 'tsconfig.json',
+                                'go.mod', 'cargo.toml', 'makefile', 'dockerfile'} or
+                    # Documentation
+                    filename in {'readme.md', 'readme.txt', 'changelog.md', 'contributing.md'} or
+                    # Important config directories
+                    'config' in path_obj.parts[:2] or 'settings' in path_obj.parts[:2]
+                )
 
-            # Show file size for context
-            size_kb = file_size / 1024
-            size_str = f"{size_kb:.1f}KB" if size_kb < 1024 else f"{size_kb/1024:.1f}MB"
-            console.print(f"  📄 Summarizing {file_path} ({size_str})...")
+                # Set line limit based on importance
+                if is_important:
+                    max_lines = None  # Read entire file
+                else:
+                    max_lines = 100  # First 100 lines for regular files
 
-            summary = self._summarize_file(file_path)
-            if summary and not summary.startswith("Error"):
-                all_summaries.append(f"=== {file_path} ===\n{summary}")
-                files_read += 1
+                with open(full_path, 'r', encoding='utf-8', errors='ignore') as fp:
+                    lines = []
+                    for i, line in enumerate(fp):
+                        if max_lines and i >= max_lines:
+                            lines.append(f"... (truncated at {max_lines} lines)")
+                            break
+                        lines.append(line.rstrip())
 
-                # Add delay to avoid rate limits (2 seconds between summaries)
-                time.sleep(2)
-            else:
-                console.print(f"    ⚠️  Failed to summarize: {summary}")
-                files_skipped += 1
+                    content = '\n'.join(lines)
+                    file_contents.append(f"=== {file_path} ===\n{content}")
+                    files_read += 1
 
-        console.print(f"✅ Summarized {files_read} files, skipped {files_skipped} files")
-        console.print(f"📝 Generating AGENTS.md with AI...")
+                    if files_read % 10 == 0:
+                        console.print(f"  📄 Read {files_read} files...")
+            except Exception:
+                continue  # Skip files we can't read
 
-        files_context = "\n\n".join(all_summaries) if all_summaries else "No files found"
+        console.print(f"✅ Read {files_read} files")
+        console.print("📝 Generating AGENTS.md with AI (one prompt, cached)...")
 
-        # Build appropriate prompt based on whether this is creation or update
-        if is_update and existing_agents_content:
-            action_verb = "updating"
-            existing_context = f"""
-Existing AGENTS.md Content:
-```markdown
-{existing_agents_content[:5000]}
-```
+        # Build ONE big prompt with all file contents
+        files_context = "\n\n".join(file_contents) if file_contents else "No files found"
 
-Your task: Review the existing AGENTS.md and UPDATE it with the latest file summaries below.
-- Preserve any manually added sections or important notes
-- Update outdated information with current details from the file summaries
-- Add new classes, functions, or files that weren't documented before
-- Remove references to deleted files or components
-- Keep the same overall structure and tone
-"""
-        else:
-            action_verb = "creating"
-            existing_context = ""
-
-        # Use LLM to generate or update AGENTS.md with chain-of-thought
-        prompt = f"""You are {action_verb} an AGENTS.md file for a project. This file will be used by AI coding assistants to understand the project structure, conventions, and how to work with the codebase.
-{existing_context}
+        # Create prompt with file contents
+        prompt = f"""Analyze this project and create a comprehensive AGENTS.md file.
 
 Project Information:
 - Name: {project_name}
@@ -230,102 +219,34 @@ File Structure:
 {file_tree}
 ```
 
-AI-Generated Summaries of All Files:
+File Contents (important files shown in full, others truncated to first 100 lines):
 {files_context}
 
-IMPORTANT: First, analyze the project in a <thinking> section:
-1. What is the primary purpose and domain of this project?
-2. What are the main components and how do they interact?
-3. What are the key technologies and frameworks being used?
-4. What patterns and conventions are consistently used?
-5. What would an AI agent need to know to effectively work on this codebase?
-6. What are the most important classes, functions, and files?
+Create a detailed AGENTS.md file with these sections:
 
-Then create the AGENTS.md content in a <content> section.
+1. **Project Overview** - What this project does, main use cases
+2. **Tech Stack** - Languages, frameworks, key dependencies
+3. **Architecture** - Directory structure, key files, main classes, data flow
+4. **Key Classes & Functions** - Actual class/function names from the code
+5. **Configuration & Setup** - Environment variables, config files, setup steps
+6. **How to Test** - Test commands and approach
+7. **Coding Conventions** - Patterns, style, error handling
+8. **Important Implementation Details** - Key algorithms, gotchas, TODOs
 
-Format:
-<thinking>
-[Your analysis of the project based on the file summaries]
-</thinking>
-
-<content>
-# AGENTS.md
-
-[The actual AGENTS.md markdown content following the structure below]
-</content>
-
-Structure for the AGENTS.md file:
-
-1. **Project Overview**
-   - What this project does
-   - Main use cases and goals
-
-2. **Tech Stack**
-   - Languages and versions
-   - ALL major dependencies (from the imports)
-   - Key libraries and what they're used for
-
-3. **Architecture**
-   - Directory structure and purposes
-   - Key files and their roles
-   - Main classes and their responsibilities
-   - Data flow and component interactions
-
-4. **Key Classes & Functions**
-   - List ACTUAL class names with purposes
-   - List ACTUAL function signatures from the code
-   - Explain what each major component does
-
-5. **Configuration & Setup**
-   - Environment variables (with actual names)
-   - Configuration files and their keys
-   - Setup steps
-   - How to run the project
-
-6. **How to Test**
-   - Test commands
-   - Testing approach
-
-7. **Coding Conventions**
-   - Patterns observed in the code
-   - Style guidelines
-   - Error handling approaches
-   - Common practices
-
-8. **Important Implementation Details**
-   - Key algorithms or approaches
-   - Important business logic
-   - Gotchas or edge cases
-   - TODOs or known issues
-
-9. **AI Agent Workflow**
-   - How to work with this codebase
-   - Where to make common changes
-   - What to be careful about
-
-IMPORTANT: Use DETAILED information from the file summaries. Include actual class names, function signatures, configuration values, and code patterns. An AI coding assistant needs concrete information, not high-level overviews."""
+Use ACTUAL information from the file contents above. Include real class names, function signatures, and configuration values.
+"""
 
         try:
+            # Send as ONE prompt (file contents will be cached by Anthropic)
             messages = [{"role": "user", "content": prompt}]
             response = self.llm.complete(messages, temperature=0.3)
-            full_response = response["content"]
-
-            # Extract content section (ignore thinking)
-            import re
-            content_match = re.search(r'<content>(.*?)</content>', full_response, re.DOTALL | re.IGNORECASE)
-            if content_match:
-                agents_content = content_match.group(1).strip()
-            else:
-                # Fallback: use full response if no tags found
-                agents_content = full_response
+            agents_content = response["content"]
 
             # Write AGENTS.md
             success, error = self.read_write.write("AGENTS.md", agents_content)
             if success:
-                if is_update:
-                    return "✓ Updated AGENTS.md with latest project changes"
-                else:
-                    return "✓ Created AI-generated AGENTS.md based on project analysis"
+                console.print("✅ Created AGENTS.md")
+                return "✓ Created AGENTS.md based on project analysis"
             else:
                 return f"✗ Failed to write AGENTS.md: {error}"
 

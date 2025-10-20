@@ -93,10 +93,15 @@ class PitCrewGraph:
         # Check if AGENTS.md already exists
         agents_path = self.project_root / "AGENTS.md"
         is_update = agents_path.exists()
+        existing_content = None
 
         if is_update:
-            console.print("📄 AGENTS.md already exists. Skipping (edit it manually or delete it first).")
-            return "ℹ️  AGENTS.md already exists. Edit it manually to update project documentation."
+            console.print("📄 Found existing AGENTS.md - will update it with latest changes...")
+            try:
+                existing_content = agents_path.read_text(encoding='utf-8')
+            except Exception as e:
+                console.print(f"⚠️  Could not read existing AGENTS.md: {e}")
+                existing_content = None
 
         console.print("📊 Building file index...")
         # Load index
@@ -127,7 +132,7 @@ class PitCrewGraph:
                           '.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv',
                           '.mp3', '.wav', '.ogg', '.flac',
                           '.ttf', '.otf', '.woff', '.woff2',
-                          '.lock', '.pyc', '.pyo', '.pyd', '.so', '.dylib', '.dll'}
+                          '.pyc', '.pyo', '.pyd', '.so', '.dylib', '.dll'}
 
         skip_filenames = {'.DS_Store', '.gitignore', '.gitattributes', '.dockerignore',
                          'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock',
@@ -139,6 +144,7 @@ class PitCrewGraph:
 
         file_contents = []
         files_read = 0
+        files_skipped = 0
 
         for f in index.files:
             file_path = f["path"]
@@ -147,12 +153,16 @@ class PitCrewGraph:
 
             # Skip files by directory, extension, filename, or size
             if any(skip_dir in path_obj.parts for skip_dir in skip_dirs):
+                files_skipped += 1
                 continue
             if path_obj.suffix.lower() in skip_extensions:
+                files_skipped += 1
                 continue
             if path_obj.name in skip_filenames:
+                files_skipped += 1
                 continue
-            if file_size > 100_000:  # Skip files > 100KB
+            if file_size > 500_000:  # Skip files > 500KB (increased from 100KB)
+                files_skipped += 1
                 continue
 
             # Determine how many lines to read based on file importance
@@ -180,7 +190,7 @@ class PitCrewGraph:
                 if is_important:
                     max_lines = None  # Read entire file
                 else:
-                    max_lines = 100  # First 100 lines for regular files
+                    max_lines = 300  # First 300 lines for regular files (increased from 100)
 
                 with open(full_path, 'r', encoding='utf-8', errors='ignore') as fp:
                     lines = []
@@ -199,14 +209,20 @@ class PitCrewGraph:
             except Exception:
                 continue  # Skip files we can't read
 
-        console.print(f"✅ Read {files_read} files")
+        console.print(f"✅ Read {files_read} files (skipped {files_skipped}: binary/lock/cache/large files)")
         console.print("📝 Generating AGENTS.md with AI (one prompt, cached)...")
 
         # Build ONE big prompt with all file contents
         files_context = "\n\n".join(file_contents) if file_contents else "No files found"
 
-        # Create prompt with file contents
-        prompt = f"""Analyze this project and create a comprehensive AGENTS.md file.
+        # Build prompt based on whether we're creating or updating
+        if is_update and existing_content:
+            prompt = f"""Update the existing AGENTS.md file for this project with the latest changes.
+
+Existing AGENTS.md Content:
+```markdown
+{existing_content[:10000]}
+```
 
 Project Information:
 - Name: {project_name}
@@ -219,7 +235,37 @@ File Structure:
 {file_tree}
 ```
 
-File Contents (important files shown in full, others truncated to first 100 lines):
+File Contents (important files shown in full, others truncated to first 300 lines):
+{files_context}
+
+**Your task:**
+Review the existing AGENTS.md and UPDATE it with the latest information from the file contents above.
+
+IMPORTANT:
+1. **Preserve** any manually added sections, notes, or instructions
+2. **Update** outdated information with current details from the file contents
+3. **Add** new classes, functions, or files that weren't documented before
+4. **Remove** references to deleted files or components that no longer exist
+5. **Keep** the same overall structure and tone
+6. Use ACTUAL information from the file contents (real class names, function signatures, config values)
+
+Return the complete updated AGENTS.md content.
+"""
+        else:
+            prompt = f"""Analyze this project and create a comprehensive AGENTS.md file.
+
+Project Information:
+- Name: {project_name}
+- Languages: {', '.join(languages)}
+- Total Files: {total_files}
+- Test Command: {test_command or 'Not detected'}
+
+File Structure:
+```
+{file_tree}
+```
+
+File Contents (important files shown in full, others truncated to first 300 lines):
 {files_context}
 
 Create a detailed AGENTS.md file with these sections:
@@ -245,8 +291,12 @@ Use ACTUAL information from the file contents above. Include real class names, f
             # Write AGENTS.md
             success, error = self.read_write.write("AGENTS.md", agents_content)
             if success:
-                console.print("✅ Created AGENTS.md")
-                return "✓ Created AGENTS.md based on project analysis"
+                if is_update:
+                    console.print("✅ Updated AGENTS.md with latest changes")
+                    return "✓ Updated AGENTS.md with latest project changes"
+                else:
+                    console.print("✅ Created AGENTS.md")
+                    return "✓ Created AGENTS.md based on project analysis"
             else:
                 return f"✗ Failed to write AGENTS.md: {error}"
 
@@ -566,7 +616,7 @@ Follow the chain-of-thought process for debugging from the system instructions. 
         if success:
             existing_content = content
             lines = len(content.split('\n'))
-            console.print(f"[dim]   📖 Read existing file ({lines} lines)[/dim]")
+            console.print(f"[dim]   📖 Reading {file_path} (lines 1-{lines})[/dim]")
 
         # Build prompt for code generation
         # NOTE: Project context (AGENTS.md) and COT instructions are now in the system prompt!
@@ -581,11 +631,17 @@ Current Content (if exists):
 Follow the chain-of-thought process from the system instructions."""
 
         try:
-            console.print(f"[dim]   🤖 Asking AI to generate code...[/dim]")
+            # Show the prompt being sent
+            console.print(f"[dim]   🤖 Sending prompt to AI:[/dim]")
+            prompt_preview = prompt[:200].replace('\n', ' ')
+            console.print(f"[dim]      \"{prompt_preview}...\"[/dim]")
+
             messages = [{"role": "user", "content": prompt}]
             response = self.llm.complete(messages, temperature=0.3)
             full_response = response["content"]
-            console.print(f"[dim]   ✓ Received response from AI[/dim]")
+
+            response_preview = full_response[:150].replace('\n', ' ')
+            console.print(f"[dim]   ✓ Received response from AI: \"{response_preview}...\"[/dim]")
 
             # Extract thinking and code sections
             import re

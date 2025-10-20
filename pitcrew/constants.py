@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 # Default model configuration
-DEFAULT_MODEL = "openai:gpt-4o-mini"
+DEFAULT_MODEL = "anthropic:claude-sonnet-4-5"
 
 # Execution defaults
 DEFAULT_EXEC_TIMEOUT = 45  # seconds
@@ -80,21 +80,24 @@ LANGUAGE_MAP = {
     ".sql": "sql",
 }
 
-# Model descriptors
+# Model descriptors - Anthropic Claude models only
 SUPPORTED_MODELS = {
-    "openai:gpt-4o": {
-        "provider": "openai",
-        "name": "gpt-4o",
-        "max_output_tokens": 4096,
-    },
-    "openai:gpt-4o-mini": {
-        "provider": "openai",
-        "name": "gpt-4o-mini",
-        "max_output_tokens": 4096,
-    },
-    "anthropic:claude-3-5-sonnet-20241022": {
+    # Claude Sonnet 4.5 - Latest flagship model (best for coding and agents)
+    "anthropic:claude-sonnet-4-5": {
         "provider": "anthropic",
-        "name": "claude-3-5-sonnet-20241022",
+        "name": "claude-sonnet-4-5-20250929",
+        "max_output_tokens": 8192,
+    },
+    # Claude Haiku 4.5 - Fast and cost-effective
+    "anthropic:claude-haiku-4-5": {
+        "provider": "anthropic",
+        "name": "claude-haiku-4-5-20251001",
+        "max_output_tokens": 8192,
+    },
+    # Claude Opus 4.1 - Most capable for complex reasoning
+    "anthropic:claude-opus-4-1": {
+        "provider": "anthropic",
+        "name": "claude-opus-4-1-20250805",
         "max_output_tokens": 8192,
     },
 }

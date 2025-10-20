@@ -25,7 +25,6 @@ class Config:
     """
 
     # API Keys
-    openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
     langsmith_api_key: Optional[str] = None
     langsmith_tracing: bool = False
@@ -60,7 +59,6 @@ class Config:
 
         # Create config from environment
         config = cls(
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
             langsmith_api_key=os.getenv("LANGSMITH_API_KEY"),
             langsmith_tracing=os.getenv("LANGSMITH_TRACING", "").lower() == "true",
@@ -93,8 +91,8 @@ class Config:
         """
         errors = []
 
-        if not self.openai_api_key and not self.anthropic_api_key:
-            errors.append("No API keys found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
+        if not self.anthropic_api_key:
+            errors.append("No Anthropic API key found. Set ANTHROPIC_API_KEY in .env")
 
         if self.exec_timeout <= 0:
             errors.append("exec_timeout must be positive")
@@ -116,6 +114,5 @@ class Config:
             "max_read_mb": self.max_read_mb,
             "max_write_mb": self.max_write_mb,
             "custom_commands": self.custom_commands,
-            "has_openai_key": bool(self.openai_api_key),
             "has_anthropic_key": bool(self.anthropic_api_key),
         }

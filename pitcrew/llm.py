@@ -1,10 +1,9 @@
-"""LLM abstraction layer for multiple providers."""
+"""LLM abstraction layer for Anthropic Claude models."""
 
 from dataclasses import dataclass
 from typing import Any, Generator, Literal, Optional
 
 from anthropic import Anthropic
-from openai import OpenAI
 
 from pitcrew.constants import SUPPORTED_MODELS
 
@@ -13,31 +12,29 @@ from pitcrew.constants import SUPPORTED_MODELS
 class ModelDescriptor:
     """Descriptor for an LLM model."""
 
-    provider: Literal["openai", "anthropic"]
+    provider: Literal["anthropic"]
     name: str
     max_output_tokens: int
     temperature: float = 0.7
 
 
 class LLM:
-    """Unified LLM interface for multiple providers."""
+    """Anthropic Claude LLM interface."""
 
     def __init__(self, descriptor: ModelDescriptor, api_key: str):
         """Initialize LLM client.
 
         Args:
             descriptor: Model descriptor
-            api_key: API key for the provider
+            api_key: Anthropic API key
         """
         self.descriptor = descriptor
         self.api_key = api_key
 
-        if descriptor.provider == "openai":
-            self.client = OpenAI(api_key=api_key)
-        elif descriptor.provider == "anthropic":
-            self.client = Anthropic(api_key=api_key)
-        else:
-            raise ValueError(f"Unsupported provider: {descriptor.provider}")
+        if descriptor.provider != "anthropic":
+            raise ValueError(f"Only Anthropic models are supported. Got: {descriptor.provider}")
+
+        self.client = Anthropic(api_key=api_key)
 
     def complete(
         self,
@@ -60,10 +57,7 @@ class LLM:
         temp = temperature if temperature is not None else self.descriptor.temperature
         max_tok = max_tokens if max_tokens is not None else self.descriptor.max_output_tokens
 
-        if self.descriptor.provider == "openai":
-            return self._complete_openai(messages, tools, temp, max_tok)
-        elif self.descriptor.provider == "anthropic":
-            return self._complete_anthropic(messages, tools, temp, max_tok)
+        return self._complete_anthropic(messages, tools, temp, max_tok)
 
     def stream(
         self,
@@ -86,50 +80,7 @@ class LLM:
         temp = temperature if temperature is not None else self.descriptor.temperature
         max_tok = max_tokens if max_tokens is not None else self.descriptor.max_output_tokens
 
-        if self.descriptor.provider == "openai":
-            yield from self._stream_openai(messages, tools, temp, max_tok)
-        elif self.descriptor.provider == "anthropic":
-            yield from self._stream_anthropic(messages, tools, temp, max_tok)
-
-    def _complete_openai(
-        self,
-        messages: list[dict[str, Any]],
-        tools: Optional[list[dict]],
-        temperature: float,
-        max_tokens: int,
-    ) -> dict[str, Any]:
-        """Complete using OpenAI API."""
-        kwargs: dict[str, Any] = {
-            "model": self.descriptor.name,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-
-        if tools:
-            kwargs["tools"] = tools
-            kwargs["tool_choice"] = "auto"
-
-        response = self.client.chat.completions.create(**kwargs)
-
-        message = response.choices[0].message
-
-        result: dict[str, Any] = {
-            "content": message.content or "",
-            "role": "assistant",
-        }
-
-        if message.tool_calls:
-            result["tool_calls"] = [
-                {
-                    "id": tc.id,
-                    "name": tc.function.name,
-                    "arguments": tc.function.arguments,
-                }
-                for tc in message.tool_calls
-            ]
-
-        return result
+        yield from self._stream_anthropic(messages, tools, temp, max_tok)
 
     def _complete_anthropic(
         self,
@@ -335,32 +286,6 @@ class LLM:
             name=model_config["name"],
             max_output_tokens=model_config["max_output_tokens"],
         )
-
-    def _stream_openai(
-        self,
-        messages: list[dict[str, Any]],
-        tools: Optional[list[dict]],
-        temperature: float,
-        max_tokens: int,
-    ) -> Generator[str, None, None]:
-        """Stream using OpenAI API."""
-        kwargs: dict[str, Any] = {
-            "model": self.descriptor.name,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "stream": True,
-        }
-
-        if tools:
-            kwargs["tools"] = tools
-            kwargs["tool_choice"] = "auto"
-
-        stream = self.client.chat.completions.create(**kwargs)
-
-        for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
 
     def _stream_anthropic(
         self,

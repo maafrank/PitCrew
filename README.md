@@ -9,14 +9,14 @@ PitCrew is an interactive terminal application that lets you edit code using nat
 - 💬 **Natural Language Interface**: Chat naturally - "Add error handling to login" or "Tell me about this project"
 - 🤖 **Agentic Code Exploration**: Automatically explores files, reads code, and gathers information to answer questions
 - 🌊 **Streaming Responses**: Real-time token-by-token streaming for instant feedback
-- 🧠 **AI-Powered Planning**: Intelligent multi-file edit plans using GPT-4 or Claude
+- 🧠 **AI-Powered Planning**: Intelligent multi-file edit plans using Claude Sonnet 4.5
 - ⚡ **Autonomous Execution**: Automatically plans → applies → tests your changes
 - 📝 **Smart File Operations**: Read, write, patch with safety checks
 - 🔄 **Snapshot & Undo**: Automatic backups before changes
 - 🧪 **Test Integration**: Auto-detect and run pytest, npm test, go test, etc.
 - 🛡️ **Sandboxed Execution**: Safe command execution with resource limits
 - 🎯 **Project Context**: Learns from AGENTS.md files
-- 🔀 **Multi-Model**: Switch between OpenAI and Anthropic models instantly
+- 🤔 **Chain-of-Thought**: See the AI's reasoning process in real-time
 
 ## 🚀 Quick Start
 
@@ -33,12 +33,11 @@ pip install -e .
 Create `.env` file:
 
 ```bash
-# At least one API key required
-OPENAI_API_KEY=your_key_here
+# Anthropic API key (required)
 ANTHROPIC_API_KEY=your_key_here
 
 # Optional settings
-PITCREW_DEFAULT_MODEL=anthropic:claude-3-5-sonnet-20241022
+PITCREW_DEFAULT_MODEL=anthropic:claude-sonnet-4-5
 PITCREW_EXEC_TIMEOUT=45
 ```
 
@@ -121,12 +120,11 @@ pitcrew> /model openai:gpt-4o           # Switch model
 
 ## 🤖 Supported Models
 
-### Anthropic (Recommended)
-- `anthropic:claude-3-5-sonnet-20241022` - Best for structured tasks
+All models are from Anthropic Claude:
 
-### OpenAI
-- `openai:gpt-4o` - Most capable
-- `openai:gpt-4o-mini` - Faster, cheaper
+- `anthropic:claude-sonnet-4-5` - **Default** - Best for coding and agents (Latest flagship model)
+- `anthropic:claude-haiku-4-5` - Fast and cost-effective
+- `anthropic:claude-opus-4-1` - Most capable for complex reasoning
 
 Switch anytime: `/model <name>` or set `PITCREW_DEFAULT_MODEL` in `.env`
 
@@ -148,7 +146,7 @@ pitcrew/
 │   ├── graph.py            # LangGraph orchestration
 │   ├── conversation.py     # Context management
 │   ├── intent.py           # Intent detection
-│   ├── llm.py              # LLM abstraction (OpenAI + Anthropic)
+│   ├── llm.py              # LLM abstraction (Anthropic Claude)
 │   ├── handlers/           # Query, autonomous execution
 │   ├── tools/              # FileIndex, ReadWrite, Planner, Executor, Tester
 │   └── utils/              # Ignore rules, diffs, logging
@@ -224,12 +222,15 @@ mypy pitcrew/
 
 ## 🗺️ Roadmap
 
-### Current (v0.1.0)
+### Current (v0.2.0)
 - ✅ Natural language interface
 - ✅ Multi-file planning and editing
 - ✅ Test integration
 - ✅ Snapshot/undo
-- ✅ OpenAI + Anthropic support
+- ✅ Anthropic Claude 4.5 models
+- ✅ Chain-of-thought reasoning
+- ✅ Iterative auto-implementation
+- ✅ Smart AGENTS.md updates
 
 ### Future
 - 🔜 File finder (fuzzy search)

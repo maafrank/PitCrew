@@ -39,16 +39,11 @@ class PitCrewGraph:
         self.executor = Executor(project_root, config.exec_timeout, config.exec_net_policy)
         self.tester = Tester(project_root, self.executor, config.custom_commands)
 
-        # Initialize LLM
+        # Initialize LLM (Anthropic only)
         model_descriptor = LLM.parse_model_string(config.default_model)
-        api_key = (
-            config.openai_api_key
-            if model_descriptor.provider == "openai"
-            else config.anthropic_api_key
-        )
-        if not api_key:
-            raise ValueError(f"No API key found for provider: {model_descriptor.provider}")
-        self.llm = LLM(model_descriptor, api_key)
+        if not config.anthropic_api_key:
+            raise ValueError("No Anthropic API key found. Set ANTHROPIC_API_KEY in .env")
+        self.llm = LLM(model_descriptor, config.anthropic_api_key)
 
         # Initialize planner
         self.planner = Planner(self.llm, project_root)

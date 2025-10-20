@@ -166,6 +166,18 @@ class REPL:
                 console.print("[dim]Applying plan...[/dim]\n")
                 result = self.graph.handle_apply(self.last_plan)
                 console.print(result)
+            elif cmd == "/implement":
+                if not args:
+                    console.print("[red]Usage: /implement <file_path> <description>[/red]")
+                    return
+                # Split into file_path and description
+                parts = args.split(maxsplit=1)
+                if len(parts) < 2:
+                    console.print("[red]Usage: /implement <file_path> <description>[/red]")
+                    return
+                file_path, description = parts
+                result = self.graph.handle_implement(file_path, description)
+                console.print(result)
             elif cmd == "/exec":
                 if not args:
                     console.print("[red]Usage: /exec <command>[/red]")
@@ -361,6 +373,7 @@ Be concise, helpful, and action-oriented. Always confirm before making changes."
 - `/init` - Create AGENTS.md file
 - `/plan <goal>` - Generate a structured edit plan
 - `/apply` - Apply the last generated plan
+- `/implement <file> <description>` - Generate code for a specific file
 - `/read <path>` - Read a file
 - `/exec <cmd>` - Execute a command
 - `/test` - Auto-detect and run tests

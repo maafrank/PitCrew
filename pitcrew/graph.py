@@ -87,7 +87,7 @@ class PitCrewGraph:
         return state
 
     def handle_init(self) -> str:
-        """Handle /init command - create AI-generated AGENTS.md.
+        """Handle /init command - create or update AI-generated AGENTS.md.
 
         Returns:
             Status message
@@ -97,8 +97,15 @@ class PitCrewGraph:
 
         # Check if AGENTS.md already exists
         agents_path = self.project_root / "AGENTS.md"
+        existing_agents_content = None
+        is_update = False
+
         if agents_path.exists():
-            return "- AGENTS.md already exists (skipped)"
+            is_update = True
+            console.print("📄 Found existing AGENTS.md, will update it with latest changes...")
+            success, content, _ = self.read_write.read("AGENTS.md")
+            if success:
+                existing_agents_content = content
 
         console.print("📊 Building file index...")
         # Load index
@@ -166,8 +173,29 @@ class PitCrewGraph:
 
         files_context = "\n\n".join(all_summaries) if all_summaries else "No files found"
 
-        # Use LLM to generate AGENTS.md
-        prompt = f"""You are creating an AGENTS.md file for a project. This file will be used by AI coding assistants to understand the project structure, conventions, and how to work with the codebase.
+        # Build appropriate prompt based on whether this is creation or update
+        if is_update and existing_agents_content:
+            action_verb = "updating"
+            existing_context = f"""
+Existing AGENTS.md Content:
+```markdown
+{existing_agents_content[:5000]}
+```
+
+Your task: Review the existing AGENTS.md and UPDATE it with the latest file summaries below.
+- Preserve any manually added sections or important notes
+- Update outdated information with current details from the file summaries
+- Add new classes, functions, or files that weren't documented before
+- Remove references to deleted files or components
+- Keep the same overall structure and tone
+"""
+        else:
+            action_verb = "creating"
+            existing_context = ""
+
+        # Use LLM to generate or update AGENTS.md with chain-of-thought
+        prompt = f"""You are {action_verb} an AGENTS.md file for a project. This file will be used by AI coding assistants to understand the project structure, conventions, and how to work with the codebase.
+{existing_context}
 
 Project Information:
 - Name: {project_name}
@@ -183,15 +211,28 @@ File Structure:
 AI-Generated Summaries of All Files:
 {files_context}
 
-Based on the detailed file summaries above, create a comprehensive AGENTS.md file.
+IMPORTANT: First, analyze the project in a <thinking> section:
+1. What is the primary purpose and domain of this project?
+2. What are the main components and how do they interact?
+3. What are the key technologies and frameworks being used?
+4. What patterns and conventions are consistently used?
+5. What would an AI agent need to know to effectively work on this codebase?
+6. What are the most important classes, functions, and files?
 
-IMPORTANT: Use the DETAILED information from the file summaries. Include:
-- Actual class names, function names, and signatures
-- Specific configuration values and constants
-- Real import statements and dependencies
-- Actual code patterns and conventions found in the files
+Then create the AGENTS.md content in a <content> section.
 
-Create sections:
+Format:
+<thinking>
+[Your analysis of the project based on the file summaries]
+</thinking>
+
+<content>
+# AGENTS.md
+
+[The actual AGENTS.md markdown content following the structure below]
+</content>
+
+Structure for the AGENTS.md file:
 
 1. **Project Overview**
    - What this project does
@@ -240,21 +281,31 @@ Create sections:
    - Where to make common changes
    - What to be careful about
 
-DO NOT SUMMARIZE OR SIMPLIFY. Include the specific details from the file summaries. An AI coding assistant needs concrete information, not high-level overviews.
-
-Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
+IMPORTANT: Use DETAILED information from the file summaries. Include actual class names, function signatures, configuration values, and code patterns. An AI coding assistant needs concrete information, not high-level overviews."""
 
         try:
             messages = [{"role": "user", "content": prompt}]
             response = self.llm.complete(messages, temperature=0.3)
-            agents_content = response["content"]
+            full_response = response["content"]
+
+            # Extract content section (ignore thinking)
+            import re
+            content_match = re.search(r'<content>(.*?)</content>', full_response, re.DOTALL | re.IGNORECASE)
+            if content_match:
+                agents_content = content_match.group(1).strip()
+            else:
+                # Fallback: use full response if no tags found
+                agents_content = full_response
 
             # Write AGENTS.md
             success, error = self.read_write.write("AGENTS.md", agents_content)
             if success:
-                return "✓ Created AI-generated AGENTS.md based on project analysis"
+                if is_update:
+                    return "✓ Updated AGENTS.md with latest project changes"
+                else:
+                    return "✓ Created AI-generated AGENTS.md based on project analysis"
             else:
-                return f"✗ Failed to create AGENTS.md: {error}"
+                return f"✗ Failed to write AGENTS.md: {error}"
 
         except Exception as e:
             return f"✗ Error generating AGENTS.md: {str(e)}"
@@ -378,6 +429,12 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
                     else:
                         messages.append(f"✗ Failed to patch {edit.path}: {result.error}")
 
+            elif edit.action == "implement":
+                # Use the implement handler to generate code
+                description = edit.description or edit.justification
+                result = self.handle_implement(edit.path, description)
+                messages.append(result)
+
             elif edit.action == "delete":
                 file_path = self.project_root / edit.path
                 try:
@@ -386,7 +443,7 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
                 except Exception as e:
                     messages.append(f"✗ Failed to delete {edit.path}: {e}")
 
-        # Run post-checks
+        # Run post-checks with auto-fix loop
         if plan.post_checks:
             messages.append("\nRunning post-checks:")
             for check in plan.post_checks:
@@ -395,15 +452,269 @@ Generate ONLY the markdown content for AGENTS.md, no additional commentary."""
                 if command.startswith("python ") or command == "python":
                     command = command.replace("python", "python3", 1)
 
-                result = self.executor.run(command, sandbox=True)
-                if result.success:
-                    messages.append(f"✓ {command}")
-                else:
-                    messages.append(f"✗ {command} (exit code: {result.exit_code})")
-                    if result.stderr:
-                        messages.append(f"  {result.stderr[:200]}")
+                # Try up to 3 times to fix test failures
+                max_retries = 3
+                for attempt in range(max_retries):
+                    result = self.executor.run(command, sandbox=True)
+
+                    if result.success:
+                        messages.append(f"✓ {command}")
+                        break
+                    else:
+                        messages.append(f"✗ {command} (exit code: {result.exit_code}) [Attempt {attempt + 1}/{max_retries}]")
+
+                        # Show error output
+                        error_preview = result.stderr[:300] if result.stderr else result.stdout[:300] if result.stdout else "No output"
+                        messages.append(f"  Error: {error_preview}")
+
+                        # If this was the last attempt, give up
+                        if attempt == max_retries - 1:
+                            full_error = result.stderr or result.stdout or "No output"
+                            messages.append(f"\n  Full error output:\n{full_error[:1000]}")
+                            messages.append(f"  ⚠️  Gave up after {max_retries} attempts")
+                            break
+
+                        # Attempt to auto-fix the errors
+                        messages.append(f"  🔧 Analyzing errors and attempting fix...")
+                        fix_result = self._auto_fix_test_failures(command, result, plan)
+                        messages.append(f"  {fix_result}")
 
         return "\n".join(messages)
+
+    def _auto_fix_test_failures(self, command: str, result: Any, original_plan: Any) -> str:
+        """Analyze test failures and automatically generate a fix plan.
+
+        Args:
+            command: The test command that failed
+            result: Execution result with stderr/stdout
+            original_plan: The original plan that was applied
+
+        Returns:
+            Status message
+        """
+        # Combine stdout and stderr
+        error_output = f"{result.stdout}\n{result.stderr}" if result.stdout or result.stderr else "No output"
+
+        # Build prompt for fix generation with chain-of-thought
+        prompt = f"""A test command failed. Analyze the errors and determine how to fix them.
+
+Test Command: {command}
+Exit Code: {result.exit_code}
+
+Error Output:
+{error_output[:2000]}
+
+Original Plan Intent: {original_plan.intent}
+
+Files that were created/modified:
+{chr(10).join([f"- {edit.path}" for edit in original_plan.edits])}
+
+IMPORTANT: Think through the problem step-by-step in a <thinking> section:
+1. What type of error is this? (ImportError, SyntaxError, AttributeError, logic error, etc.)
+2. What is the root cause? Look at the error traceback and messages carefully.
+3. Which specific files or lines are mentioned in the error?
+4. Is this a missing dependency, wrong import path, missing file, or code logic issue?
+5. What specific changes are needed to fix this?
+6. Are there any related issues that might cause the same error again?
+
+Then provide your analysis in an <analysis> section.
+
+Format:
+<thinking>
+[Step-by-step reasoning about the error and how to fix it]
+</thinking>
+
+<analysis>
+[Brief summary of what needs to be fixed and why]
+</analysis>"""
+
+        try:
+            # Load context
+            context_docs = self._load_context_docs()
+
+            # Create a fix plan using the planner
+            # We'll use a simplified approach: ask LLM directly for fixes
+            messages = [
+                {"role": "system", "content": "You are debugging test failures. Provide specific, targeted fixes."},
+                {"role": "user", "content": prompt}
+            ]
+
+            response = self.llm.complete(messages, temperature=0.3)
+            full_response = response["content"]
+
+            # Extract thinking and analysis sections
+            import re
+            thinking_match = re.search(r'<thinking>(.*?)</thinking>', full_response, re.DOTALL | re.IGNORECASE)
+            thinking = thinking_match.group(1).strip() if thinking_match else None
+
+            analysis_match = re.search(r'<analysis>(.*?)</analysis>', full_response, re.DOTALL | re.IGNORECASE)
+            analysis = analysis_match.group(1).strip() if analysis_match else full_response
+
+            # Display thinking to console
+            from rich.console import Console
+            console = Console()
+
+            if thinking:
+                console.print(f"[dim]💭 Error Analysis:[/dim]")
+                # Show first 300 chars of thinking
+                thinking_preview = thinking[:300] + "..." if len(thinking) > 300 else thinking
+                console.print(f"[dim]{thinking_preview}[/dim]")
+
+            # Extract file names from error messages
+            import re
+            file_matches = re.findall(r'File "([^"]+)"', error_output)
+            files_to_fix = list(set(file_matches))  # Unique files
+
+            # If no files found in error, try to infer from the files we just created
+            if not files_to_fix:
+                # Look for module/import errors that mention our files
+                for edit in original_plan.edits:
+                    file_name = edit.path.split('/')[-1].replace('.py', '')
+                    if file_name in error_output or edit.path in error_output:
+                        files_to_fix.append(edit.path)
+
+            # If still no files, just re-implement all files from the plan
+            if not files_to_fix:
+                files_to_fix = [edit.path for edit in original_plan.edits if edit.action in ["implement", "create"]][:3]
+
+            if not files_to_fix:
+                return f"Analysis: {analysis[:500]} | No files identified to fix"
+
+            # Create fix plan
+            from pitcrew.tools.planner import Plan, EditAction
+
+            fix_edits = []
+            for file_path in files_to_fix[:3]:  # Limit to 3 files
+                fix_edits.append(EditAction(
+                    path=file_path,
+                    action="implement",
+                    justification=f"Fix errors in {file_path}",
+                    description=f"Fix the errors found during testing. Error output shows: {error_output[:300]}. LLM analysis: {analysis[:200]}"
+                ))
+
+            if not fix_edits:
+                return f"Analysis: {analysis[:300]}"
+
+            fix_plan = Plan(
+                intent="Fix test failures",
+                edits=fix_edits,
+                post_checks=[]
+            )
+
+            # Apply the fix plan (without post-checks to avoid infinite loop)
+            result_messages = []
+            for edit in fix_plan.edits:
+                if edit.action == "implement":
+                    description = edit.description or edit.justification
+                    impl_result = self.handle_implement(edit.path, description)
+                    result_messages.append(impl_result)
+
+            return " | ".join(result_messages) if result_messages else "No fixes applied"
+
+        except Exception as e:
+            return f"Error during auto-fix: {str(e)}"
+
+    def handle_implement(self, file_path: str, description: str) -> str:
+        """Handle /implement command - generate code for a specific file.
+
+        Args:
+            file_path: Path to the file to implement
+            description: What the file should do
+
+        Returns:
+            Status message
+        """
+        from rich.console import Console
+        console = Console()
+
+        console.print(f"🔨 Implementing {file_path}...")
+
+        # Read the current file content (if it exists)
+        existing_content = ""
+        success, content, _ = self.read_write.read(file_path)
+        if success:
+            existing_content = content
+
+        # Load AGENTS.md for context
+        context_docs = self._load_context_docs()
+        context = "\n\n".join(context_docs) if context_docs else ""
+
+        # Build prompt for code generation with chain-of-thought
+        prompt = f"""Generate complete, working code for this file.
+
+File: {file_path}
+Purpose: {description}
+
+Project Context:
+{context[:1000]}
+
+Current Content (if exists):
+{existing_content[:500] if existing_content else "File does not exist yet"}
+
+IMPORTANT: First, think through your implementation step-by-step in a <thinking> section:
+1. What is the main purpose and responsibility of this file?
+2. What classes/functions/components are needed?
+3. What imports and dependencies are required?
+4. How does this integrate with the rest of the project (based on context)?
+5. What edge cases or error handling should be included?
+6. What are the specific requirements from the description?
+
+Then provide the complete code in a <code> section.
+
+Format your response as:
+<thinking>
+[Your detailed step-by-step reasoning here]
+</thinking>
+
+<code>
+[The actual code content - complete and working, not TODO comments]
+</code>
+
+The code section should contain ONLY raw code with no markdown fences or explanations."""
+
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.complete(messages, temperature=0.3)
+            full_response = response["content"]
+
+            # Extract thinking and code sections
+            import re
+
+            # Try to extract thinking section
+            thinking_match = re.search(r'<thinking>(.*?)</thinking>', full_response, re.DOTALL | re.IGNORECASE)
+            thinking = thinking_match.group(1).strip() if thinking_match else None
+
+            # Try to extract code section
+            code_match = re.search(r'<code>(.*?)</code>', full_response, re.DOTALL | re.IGNORECASE)
+            if code_match:
+                generated_code = code_match.group(1).strip()
+            else:
+                # Fallback: try markdown code blocks
+                if "```" in full_response:
+                    match = re.search(r'```(?:\w+)?\n(.*?)\n```', full_response, re.DOTALL)
+                    if match:
+                        generated_code = match.group(1)
+                    else:
+                        generated_code = full_response
+                else:
+                    generated_code = full_response
+
+            # Display thinking to user if present
+            if thinking:
+                console.print(f"[dim]💭 Reasoning:[/dim]")
+                # Show first 200 chars of thinking
+                thinking_preview = thinking[:200] + "..." if len(thinking) > 200 else thinking
+                console.print(f"[dim]{thinking_preview}[/dim]")
+
+            # Write the file
+            success, error = self.read_write.write(file_path, generated_code)
+            if success:
+                return f"✓ Implemented {file_path}"
+            else:
+                return f"✗ Failed to write {file_path}: {error}"
+
+        except Exception as e:
+            return f"✗ Error generating code for {file_path}: {str(e)}"
 
     def handle_exec(self, command: str) -> str:
         """Handle /exec command - execute a command.
@@ -526,8 +837,21 @@ Content:
 {content}
 ```
 
-Structure your response EXACTLY as follows:
+IMPORTANT: First, think about the file structure in a <thinking> section:
+1. What is the primary purpose of this file?
+2. What are the main components (classes, functions)?
+3. What external dependencies does it use?
+4. What patterns or approaches are used?
+5. How does it fit into the larger project?
 
+Then provide the detailed summary in a <summary> section.
+
+Format:
+<thinking>
+[Brief analysis of the file]
+</thinking>
+
+<summary>
 ## Overview
 [2-3 sentences describing what this file does, its purpose, and how it fits in the project]
 
@@ -572,6 +896,7 @@ Structure your response EXACTLY as follows:
 - Error handling approach
 - Notable business logic
 - TODOs or FIXMEs
+</summary>
 
 Be EXHAUSTIVE. List EVERY class, EVERY method with full signatures, EVERY function. This documentation will be used by AI coding assistants."""
 
@@ -582,7 +907,16 @@ Be EXHAUSTIVE. List EVERY class, EVERY method with full signatures, EVERY functi
             try:
                 messages = [{"role": "user", "content": summary_prompt}]
                 response = self.llm.complete(messages, temperature=0.3)
-                return response["content"]
+                full_response = response["content"]
+
+                # Extract summary section (ignore thinking)
+                import re
+                summary_match = re.search(r'<summary>(.*?)</summary>', full_response, re.DOTALL | re.IGNORECASE)
+                if summary_match:
+                    return summary_match.group(1).strip()
+                else:
+                    # Fallback: return full response if no tags found
+                    return full_response
             except Exception as e:
                 error_msg = str(e)
                 # Check if it's a rate limit error

@@ -15,10 +15,11 @@ class EditAction(BaseModel):
     """Represents a single file edit action."""
 
     path: str = Field(description="File path relative to project root")
-    action: str = Field(description="Action type: create, patch, replace, or delete")
+    action: str = Field(description="Action type: create, patch, replace, delete, or implement")
     justification: str = Field(description="Why this edit is needed")
     patch_unified: Optional[str] = Field(None, description="Unified diff for patch action")
     content: Optional[str] = Field(None, description="Full content for create/replace action")
+    description: Optional[str] = Field(None, description="Description for implement action - what the file should do")
 
 
 class ExecutionAction(BaseModel):
@@ -180,11 +181,12 @@ class Planner:
                             "path": {"type": "string"},
                             "action": {
                                 "type": "string",
-                                "enum": ["create", "patch", "replace", "delete"],
+                                "enum": ["create", "patch", "replace", "delete", "implement"],
                             },
                             "justification": {"type": "string"},
                             "patch_unified": {"type": "string"},
                             "content": {"type": "string"},
+                            "description": {"type": "string"},
                         },
                         "required": ["path", "action", "justification"],
                     },
@@ -331,20 +333,25 @@ class Planner:
             "You are an expert code planning assistant. Your task is to generate structured "
             "plans for code modifications.",
             "",
-            "CRITICAL JSON RULES:",
-            "- For 'content' field: Keep code VERY simple - use placeholder comments instead of full implementations",
-            "- Example good content: '# TODO: Implement SummaryConfig class with max_length and temperature params'",
-            "- Example BAD content: Full class implementations with methods - this breaks JSON parsing",
-            "- Use SINGLE quotes or escaped double quotes in content strings",
-            "- NO triple quotes ('''  or \"\"\") anywhere in content",
+            "Action Types:",
+            "- 'implement' - AI will generate complete working code for this file (PREFERRED)",
+            "  * Provide 'description' field explaining what the file should do",
+            "  * NO 'content' field needed - AI generates it automatically",
+            "  * Example: {\"action\": \"implement\", \"description\": \"Configuration class for summarization with max_length and temperature parameters\"}",
+            "",
+            "- 'create' - Create a simple file with provided content",
+            "  * Use ONLY for very simple files (configs, requirements.txt, etc.)",
+            "  * Keep content SHORT and simple - NO complex code",
+            "",
+            "- 'replace' - Replace entire existing file",
+            "- 'delete' - Delete a file",
+            "- AVOID 'patch' - it's error-prone",
             "",
             "Guidelines:",
-            "- Use 'create' action for new files",
-            "- Use 'replace' action to replace entire existing files",
-            "- AVOID 'patch' action",
-            "- Keep 'content' minimal with TODO comments explaining what should be implemented",
-            "- Always include test file placeholders",
-            "- Focus on file structure and purpose, not full implementations",
+            "- PREFER 'implement' action for ALL code files",
+            "- Use 'create' only for simple config/data files",
+            "- Always include test files with 'implement' action",
+            "- Be specific in 'description' - mention classes, functions, parameters needed",
         ]
 
         if hints["suggested_actions"]:
@@ -400,7 +407,16 @@ class Planner:
 Project files:
 {file_tree}{conversation_context}
 
-Please create a structured plan to achieve this goal. Use the create_plan function."""
+IMPORTANT: Before creating the plan, think through the requirements step-by-step:
+1. What is the user asking for? What's the main objective?
+2. What files need to be created or modified?
+3. For each file, what should it contain? (classes, functions, logic)
+4. What dependencies or imports are needed?
+5. What tests should be included?
+6. What commands should run after the changes (tests, linting)?
+7. Are there any edge cases or considerations?
+
+After thinking through these questions, create a structured plan using the create_plan function."""
 
     def _validate_plan(self, plan: Plan, index: FileIndexSnapshot) -> Plan:
         """Validate and clean up a plan.
